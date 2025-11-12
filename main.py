@@ -1,5 +1,11 @@
 from fastapi import FastAPI
 import requests
+import pyaudio
+
+FRAMES_PER_BUFFER = 3200
+FORMAT = pyaudio.paInt16
+CHANNELS = 1 # mono
+RATE = 1
 
 app = FastAPI()
 
@@ -7,10 +13,11 @@ app = FastAPI()
 async def root():
     return {"message": "Hello World"}
 
+@app.post("/record")
 def receive_command(command: str) -> None:
     # Limpia el ruido de fondo y con un llm reconoce que quiere
     pass
-
+    
 @app.post("/browse")
 async def browse(prompt: str):
     # Con un modelito hacer consultas concretas a la web.
