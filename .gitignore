@@ -1,3 +1,4 @@
 venv/*
-__pycache__/
-audio_test/model/
+**/__pycache__
+utils/model/
+.env

@@ -1,22 +1,65 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
+from utils.audio import speech_to_text
 import requests
 import pyaudio
 
-FRAMES_PER_BUFFER = 3200
-FORMAT = pyaudio.paInt16
-CHANNELS = 1 # mono
-RATE = 1
-
 app = FastAPI()
+
+html = """
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chat</title>
+    </head>
+    <body>
+        <h1>WebSocket Chat</h1>
+        <ul id='messages'>
+        </ul>
+        <script>
+            var ws = new WebSocket("ws://localhost:8000/commands");
+
+            ws.onopen = function() {
+                console.log("Connected!");
+                ws.send("hello-from-client");
+            };
+
+            ws.onerror = function(e) {
+                console.error("WebSocket error:", e);
+            };
+
+            ws.onclose = function() {
+                console.log("Disconnected!");
+            };
+
+            ws.onmessage = function(event) {
+                var messages = document.getElementById('messages')
+                var message = document.createElement('li')
+                var content = document.createTextNode(event.data)
+                message.appendChild(content)
+                messages.appendChild(message)
+            };
+        </script>
+    </body>
+</html>
+"""
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return HTMLResponse(html)
 
-@app.post("/record")
-def receive_command(command: str) -> None:
-    # Limpia el ruido de fondo y con un llm reconoce que quiere
-    pass
+# websocket
+@app.websocket("/commands")
+async def receive_command(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            text = speech_to_text() # para no dejar de recibir algo, de otra manera como que muere la comunicacion
+            if text: # pero corta la ejecucion
+                await websocket.send_text(text)
+            # Limpia el ruido de fondo y con un llm reconoce que quiere
+    except WebSocketDisconnect: # al momento de "retornar" se desconecta
+        print("se desconecto el cliente")
     
 @app.post("/browse")
 async def browse(prompt: str):
