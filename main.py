@@ -4,12 +4,12 @@ from utils.audio import speech_to_text
 from starlette.responses import RedirectResponse
 from starlette import status
 from rasa.core.agent import Agent
+from contextlib import asynccontextmanager
 import requests
 import pyaudio
 import uvicorn
 
-app = FastAPI()
-MODELO_ENTRENADO = "task_classification_model/models/nlu-20251121-040604-sparse-statement.tar.gz"
+MODELO_ENTRENADO = "/home/valeria/Documents/infomat/traductor/utils/task_classification/models/nlu-20251121-053042-dichotomic-pointer.tar.gz"
 
 html = """
 <!DOCTYPE html>
@@ -49,11 +49,13 @@ html = """
 </html>
 """
 
-@app.on_event("startup")
-async def load_rasa_model():
-    global nlu_interpreter
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global agent
     agent = Agent.load(MODELO_ENTRENADO)
-    nlu_interpreter = agent.interpreter
+    yield
+
+app = FastAPI(lifespan=lifespan)
     
 @app.get("/")
 async def root():
@@ -62,22 +64,25 @@ async def root():
 # websocket
 @app.websocket("/commands")
 async def receive_command(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        while True:
-            text = speech_to_text() # para no dejar de recibir algo, de otra manera como que muere la comunicacion
-            if text: # pero corta la ejecucion
-                nav_task = nlu_interpreter.parse(data.text)
-                prediction_intent = prediction['intent']
-                intent = intent['name']
-                confidence = intent['confidence']
-                print(intent)
-                print(f"confidence: {confidence}")
-                await websocket.send_text(intent) # crear un nuevo hilo
-                # return response.json()
-            # Limpia el ruido de fondo y con un llm reconoce que quiere
-    except WebSocketDisconnect: # al momento de "retornar" se desconecta
-        print("se desconecto el cliente")
+    if agent:
+        await websocket.accept()
+        try:
+            while True:
+                text = speech_to_text() # para no dejar de recibir algo, de otra manera como que muere la comunicacion
+                if text: # pero corta la ejecucion
+                    nav_task = agent.parse_message(text)
+                    prediction_intent = nav_task['intent']
+                    intent = prediction_intent['name']
+                    confidence = prediction_intent['confidence']
+                    print(intent)
+                    print(f"confidence: {confidence}")
+                    await websocket.send_text(intent) # crear un nuevo hilo
+                    # return response.json()
+                # Limpia el ruido de fondo y con un llm reconoce que quiere
+        except WebSocketDisconnect: # al momento de "retornar" se desconecta
+            print("se desconecto el cliente")
+    else:
+        print("no hay modelito cargado")
     
 @app.post("/browse")
 async def browse(prompt: str):

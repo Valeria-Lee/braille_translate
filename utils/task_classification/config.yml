@@ -1,0 +1,20 @@
+version: "3.1"
+
+assistant_id: "braillearn"
+language: es 
+
+pipeline:
+  - name: WhitespaceTokenizer # texto en palabras
+  - name: LexicalSyntacticFeaturizer # texto en datos numericos 
+  - name: CountVectorsFeaturizer # features por palabra
+    analyzer: word
+  - name: CountVectorsFeaturizer # errores tipograficos
+    analyzer: char_wb
+    min_ngram: 1
+    max_ngram: 4
+
+  - name: DIETClassifier
+    epochs: 100
+    constrain_resources: true 
+    intent_classification: true # clasificacion como tal
+    entity_recognition: false
