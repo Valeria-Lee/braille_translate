@@ -1,10 +1,15 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from utils.audio import speech_to_text
+from starlette.responses import RedirectResponse
+from starlette import status
+from rasa.core.agent import Agent
 import requests
 import pyaudio
+import uvicorn
 
 app = FastAPI()
+MODELO_ENTRENADO = "task_classification_model/models/nlu-20251121-040604-sparse-statement.tar.gz"
 
 html = """
 <!DOCTYPE html>
@@ -44,6 +49,12 @@ html = """
 </html>
 """
 
+@app.on_event("startup")
+async def load_rasa_model():
+    global nlu_interpreter
+    agent = Agent.load(MODELO_ENTRENADO)
+    nlu_interpreter = agent.interpreter
+    
 @app.get("/")
 async def root():
     return HTMLResponse(html)
@@ -56,7 +67,14 @@ async def receive_command(websocket: WebSocket):
         while True:
             text = speech_to_text() # para no dejar de recibir algo, de otra manera como que muere la comunicacion
             if text: # pero corta la ejecucion
-                await websocket.send_text(text)
+                nav_task = nlu_interpreter.parse(data.text)
+                prediction_intent = prediction['intent']
+                intent = intent['name']
+                confidence = intent['confidence']
+                print(intent)
+                print(f"confidence: {confidence}")
+                await websocket.send_text(intent) # crear un nuevo hilo
+                # return response.json()
             # Limpia el ruido de fondo y con un llm reconoce que quiere
     except WebSocketDisconnect: # al momento de "retornar" se desconecta
         print("se desconecto el cliente")

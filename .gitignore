@@ -2,3 +2,5 @@ venv/*
 **/__pycache__
 utils/model/
 .env
+/py311_env
+.rasa
