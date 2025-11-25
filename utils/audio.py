@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import pyaudio
 import os
 import json
+import time
 # libreria de sonido: pyaudio, libreria de speechrecognition: vosk
 # depende del procesador la capacidad de vosk
 
@@ -17,6 +18,8 @@ def speech_to_text():
     CHUNK = 4000
     FORMAT = pyaudio.paInt16
     CHANNELS = 1 # mono
+
+    SILENCE_TIMEOUT = 10
 
     p = pyaudio.PyAudio()
 
@@ -33,6 +36,9 @@ def speech_to_text():
 
     print('Recording...')
 
+    last_partial = ""
+    last_speech_time = time.time()
+
     while True:
         data = stream.read(CHUNK, exception_on_overflow=False)
             
@@ -43,8 +49,19 @@ def speech_to_text():
             text_result = json.loads(recognizer.Result())["text"]
             print(f"El texto resultante: {text_result}")
             return text_result
+
+        partial_json = json.loads(recognizer.PartialResult())
+        partial = partial_json.get("partial", "")
+
+        if partial:
+            print("partial:", partial)
+            last_partial = partial
+            last_speech_time = time.time()
         else:
-            print(f"partial res: {recognizer.PartialResult()}")
+            # si el tiempo actual y el de la ultima vez que se hablo es mayor a 7 segundos.
+            if time.time() - last_speech_time > SILENCE_TIMEOUT:
+                print("partial res:", last_partial)
+                return last_partial
 
     stream.stop_stream()
     stream.close()

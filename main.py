@@ -10,6 +10,7 @@ import pyaudio
 import uvicorn
 
 MODELO_ENTRENADO = "/home/valeria/Documents/infomat/traductor/utils/task_classification/models/nlu-20251121-053042-dichotomic-pointer.tar.gz"
+silence_seconds = 0
 
 html = """
 <!DOCTYPE html>
@@ -70,15 +71,14 @@ async def receive_command(websocket: WebSocket):
             while True:
                 text = speech_to_text() # para no dejar de recibir algo, de otra manera como que muere la comunicacion
                 if text: # pero corta la ejecucion
-                    nav_task = agent.parse_message(text)
+                    nav_task = await agent.parse_message(text)
                     prediction_intent = nav_task['intent']
                     intent = prediction_intent['name']
                     confidence = prediction_intent['confidence']
                     print(intent)
                     print(f"confidence: {confidence}")
+                    await websocket.send_text(text)
                     await websocket.send_text(intent) # crear un nuevo hilo
-                    # return response.json()
-                # Limpia el ruido de fondo y con un llm reconoce que quiere
         except WebSocketDisconnect: # al momento de "retornar" se desconecta
             print("se desconecto el cliente")
     else:
@@ -97,8 +97,11 @@ async def browse(prompt: str):
     )
     return response.json()
 
-def search(title: str) -> None:
+def upload(document) -> None:
     pass
+
+def search(title: str) -> None:
+    pass # va a hacer una tonteriita que busque por palabras clave.
 
 def translate(sentence: str) -> list:
     # se podria hacer con un dict
@@ -116,5 +119,3 @@ def translate(sentence: str) -> list:
         braille_sentence.append(char)
         
     return braille_sentence
-
-# print(translate("hola"))

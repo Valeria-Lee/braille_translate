@@ -22,6 +22,8 @@ nlu:
 - intent: busqueda_biblioteca
   examples: |
     - quiero buscar un libro que tiene de titulo
+    - quiero buscar un libro en mi biblioteca
+    - quiero ver un libro de mi biblioteca
 
 - lookup: biblioteca
   examples: |
