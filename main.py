@@ -5,6 +5,7 @@ from starlette.responses import RedirectResponse
 from starlette import status
 from rasa.core.agent import Agent
 from contextlib import asynccontextmanager
+from utils.braille_translation import braille_translate, send_braille_characters
 import requests
 import pyaudio
 import uvicorn
