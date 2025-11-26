@@ -9,7 +9,8 @@ from rasa.core.agent import Agent
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 import requests, uvicorn, os, re
-
+from crud import user_crud, file_crud
+from database import get_session
 load_dotenv()
 
 MODELO_ENTRENADO = model_path = os.getenv("NLU_MODEL_PATH")
@@ -116,14 +117,19 @@ html = """
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    global agent
-    agent = Agent.load(MODELO_ENTRENADO)
-    yield
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    finally:
+        global agent
+        agent = Agent.load(MODELO_ENTRENADO)
+        yield
 
 app = FastAPI(lifespan=lifespan)
     
+app.include_router(users.router)
+app.include_router(files.router)
+
 @app.get("/")
 async def root():
     return HTMLResponse(html)
@@ -162,12 +168,29 @@ async def receive_command(websocket: WebSocket):
                     "type": "browse",
                         "data": result
                     })   
-                 
+                
+                # aqui hay espacio para esas chingaderas
+
                 elif intent == "acceso_directo":
-                    result = search(final_text)
+                    async with get_session() as db:
+                        archivo = await acceso_directo_archivo(final_text, db)
+
+                    if archivo:
+                        await websocket.send_json({
+                            "type": "direct_access",
+                            "file": archivo
+                        })
+                    else:
+                        await websocket.send_json({
+                            "type": "direct_access",
+                            "error": "No se encontró un archivo con ese nombre"
+                        })
+
+                elif intent == "agregar_archivo":
+                    respuesta = await iniciar_upload()
                     await websocket.send_json({
-                        "type": "search",
-                        "data": result
+                        "type": "upload_start",
+                        "data": respuesta
                     })
 
                 else:
@@ -222,10 +245,50 @@ async def browse(prompt: str):
 
     return {"Respuesta": text_response}
 
-@app.post("/upload")
-async def upload(document) -> None:
-    pass
+@app.post("/users/", response_model=schemas.User)
+async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_session)):
+    return await crud.create_user(db, user)
 
-@app.post("/search")
-async def search(title: str) -> None:
-    pass # va a hacer una tonteriita que busque por palabras clave.
+@app.get("/users/{user_id}", response_model=schemas.User)
+async def get_user(user_id: int, db: AsyncSession = Depends(get_session)):
+    user = await crud.get_user(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return user
+
+@app.post("/files/", response_model=schemas.File)
+async def create_file(
+    title: str,
+    user_id: int,
+    file: UploadFile = FileField(...),
+    db: AsyncSession = Depends(get_session)
+):
+    content = await file.read()
+
+    file_data = schemas.FileCreate(
+        title=title,
+        file=content
+    )
+
+    return await crud.create_file(db, file_data, user_id)
+
+@app.get("/files/{file_id}", response_model=schemas.File)
+async def get_file(file_id: int, db: AsyncSession = Depends(get_session)):
+    file = await crud.get_file(db, file_id)
+    if not file:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    return file
+
+@app.get("/files/search/", response_model=List[schemas.File])
+async def search_files(title: str, db: AsyncSession = Depends(get_session)):
+    from sqlalchemy import select
+    from models import File
+
+    query = select(File).where(File.title.ilike(f"%{title}%"))
+    result = await db.execute(query)
+    files = result.scalars().all()
+
+    if not files:
+        raise HTTPException(status_code=404, detail="No se encontraron archivos")
+
+    return files
