@@ -116,6 +116,8 @@ html = """
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     global agent
     agent = Agent.load(MODELO_ENTRENADO)
     yield
@@ -191,10 +193,11 @@ await websocket.send_json({
 @app.post("/browse")
 async def browse(prompt: str):
     system_prompt = (
-        "Eres un asistente de búsqueda. Tu única tarea es responder a la "
-        "pregunta de forma concisa, utilizando únicamente el texto de la "
-        "respuesta final. No añadas introducciones, explicaciones, ni continuaciones "
-        " SOLO el resumen condensado de la búsqueda."
+        "Eres un asistente de búsqueda. Tu tarea es proporcionar una respuesta "
+        "útil y completa que responda directamente a la pregunta del usuario. "
+        "La respuesta debe ser concisa, en no más de 50 palabras. "
+        "No uses introducciones, negritas, cursivas ni saltos de línea. "
+        "Da una respuesta directa y clara."
     )
     
     full_prompt = f"{system_prompt}\n\nUsuario: {prompt}"
