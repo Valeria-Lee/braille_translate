@@ -26,7 +26,7 @@ def speech_to_text():
     try:
         model = Model(model_path) # absolute path
     except Exception as e:
-        print("es necesario descargar el modelo y nombrarlo como model, cambiar el path por el path absoluto en su sistema")
+        print("es necesario descargar el modelo y        nombrarlo como model, cambiar el path por el path absoluto en su sistema")
         exit()
 
     recognizer = KaldiRecognizer(model, RATE)

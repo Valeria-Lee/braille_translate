@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.responses import HTMLResponse
 from utils.audio import speech_to_text
 from utils.braille_translation import braille_translate, send_braille_characters
@@ -8,9 +8,11 @@ from starlette.concurrency import run_in_threadpool
 from rasa.core.agent import Agent
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
+from sqlalchemy.ext.asyncio import AsyncSession
+from routers import files, users
 import requests, uvicorn, os, re
-from crud import user_crud, file_crud
 from database import get_session
+import schemas
 load_dotenv()
 
 MODELO_ENTRENADO = model_path = os.getenv("NLU_MODEL_PATH")
@@ -90,7 +92,7 @@ html = """
 
                 if (data.type === "transcription") {
                     li.className = "transcription";
-                    li.textContent = "🎤 Texto: " + data.text +
+                    li.textContent = "Texto: " + data.text +
                                      " | Intent: " + data.intent +
                                      " | Confianza: " + (data.confidence * 100).toFixed(2) + "%";
                 }
@@ -169,10 +171,9 @@ async def receive_command(websocket: WebSocket):
                         "data": result
                     })   
                 
-                # aqui hay espacio para esas chingaderas
-
                 elif intent == "acceso_directo":
-                    async with get_session() as db:
+                    respuesta = await acceso_directo()
+                    '''async with get_session() as db:
                         archivo = await acceso_directo_archivo(final_text, db)
 
                     if archivo:
@@ -184,10 +185,11 @@ async def receive_command(websocket: WebSocket):
                         await websocket.send_json({
                             "type": "direct_access",
                             "error": "No se encontró un archivo con ese nombre"
-                        })
+                        })'''
 
                 elif intent == "agregar_archivo":
-                    respuesta = await iniciar_upload()
+                    respuesta = await agregar_archivo()
+                    '''
                     await websocket.send_json({
                         "type": "upload_start",
                         "data": respuesta
@@ -198,7 +200,7 @@ async def receive_command(websocket: WebSocket):
                         "type": "unknown",
                         "intent": intent,
                         "message": "Intent no implementado"
-                    })
+                    })'''
                         
         except WebSocketDisconnect:
             print("Cliente desconectado")
@@ -245,6 +247,15 @@ async def browse(prompt: str):
 
     return {"Respuesta": text_response}
 
+@app.get("/acceso-directo")
+async def pseudo_ruta_acceso_directo():
+    return {"mensaje": "Esta es la pseudo-ruta de Acceso Directo. La funcionalidad real se ejecuta en el WebSocket."}
+
+@app.get("/agregar-archivo")
+async def pseudo_ruta_agregar_archivo():
+    return {"mensaje": "Esta es la pseudo-ruta de Agregar Archivo. Prepara la UI para la subida de un archivo."}
+    
+'''
 @app.post("/users/", response_model=schemas.User)
 async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_session)):
     return await crud.create_user(db, user)
@@ -292,3 +303,4 @@ async def search_files(title: str, db: AsyncSession = Depends(get_session)):
         raise HTTPException(status_code=404, detail="No se encontraron archivos")
 
     return files
+'''

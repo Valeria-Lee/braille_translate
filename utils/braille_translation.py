@@ -215,7 +215,7 @@ def send_braille_characters(data):
             positions = process_char(braille_char)
             result.append(positions)
             print(f"\nCaracter {i+1}: {braille_char} → Puntos: {positions}")
-            # print_braille_cell(positions)
+            print_braille_cell(positions)
         return result
     
     # detectar el tipo de estructura y procesarla
@@ -225,7 +225,7 @@ def send_braille_characters(data):
     
     if isinstance(data, str):
         positions = process_char(data)
-        # print_braille_cell(positions)
+        print_braille_cell(positions)
         return positions
     
     if isinstance(data[0], str):
@@ -269,4 +269,4 @@ def interactive_test():
         translated_characters = braille_translate(text)
         send_braille_characters(translated_characters)
 
-# interactive_test()
+#interactive_test()
