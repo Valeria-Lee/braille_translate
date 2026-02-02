@@ -169,30 +169,6 @@ async def receive_command(websocket: WebSocket):
                     await websocket.send_json({
                     "type": "browse",
                         "data": result
-                    })   
-                
-                elif intent == "acceso_directo":
-                    respuesta = await acceso_directo()
-                    '''async with get_session() as db:
-                        archivo = await acceso_directo_archivo(final_text, db)
-
-                    if archivo:
-                        await websocket.send_json({
-                            "type": "direct_access",
-                            "file": archivo
-                        })
-                    else:
-                        await websocket.send_json({
-                            "type": "direct_access",
-                            "error": "No se encontró un archivo con ese nombre"
-                        })'''
-
-                elif intent == "agregar_archivo":
-                    respuesta = await agregar_archivo()
-                    '''
-                    await websocket.send_json({
-                        "type": "upload_start",
-                        "data": respuesta
                     })
 
                 else:

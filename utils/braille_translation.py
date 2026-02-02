@@ -1,6 +1,8 @@
 import nltk
 from nltk.tokenize import word_tokenize, sent_tokenize
 
+# pulir esto
+
 # Traducir el texto a braille.
 def braille_translate(text: str) -> list:
     nltk.download('punkt')
