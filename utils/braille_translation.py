@@ -1,19 +1,17 @@
 import nltk
 from nltk.tokenize import word_tokenize, sent_tokenize
 
-# pulir esto
-
-# Traducir el texto a braille.
 def braille_translate(text: str) -> list:
     nltk.download('punkt')
     
-    # token
     tokenized_paragraph = []
     tokenized_sentences = sent_tokenize(text)    
     
     for sentence in tokenized_sentences:
         words = word_tokenize(sentence)
         tokenized_paragraph.append(words)
+    
+    print(sentence)
     
     for i, sentence_list in enumerate(tokenized_paragraph):
         is_in_number_sequence = False
@@ -46,8 +44,10 @@ def braille_translate(text: str) -> list:
     
     return tokenized_paragraph
 
-# Traducir cada caracter a un caracter de braille.
 def _translate_char(char: str, is_in_number_sequence: bool) -> tuple[str | list, bool]:
+    mayus_char = "⠠"
+    number_char = "⠼"
+
     braille_characters = {
         "a": "⠁",
         "b": "⠃",
@@ -113,22 +113,26 @@ def _translate_char(char: str, is_in_number_sequence: bool) -> tuple[str | list,
     
     # mayusculas.
     if char.isupper():
-        lower_char = char.lower()
+        lower_char = char.lower() # lo hago minuscula
+        
         if lower_char in braille_characters:
             result = braille_characters[lower_char]
-            # Si el resultado es una lista, agregar ⠠ al inicio
+
             if isinstance(result, list):
-                return ["⠠"] + result, False
+                # pertenece a un simbolo con mas de un caracter
+                return [mayus_char] + result, False
             else:
-                return ["⠠", result], False
+                return [mayus_char, result], False
         else:
-            return ["⠠", char], False
+            # en el caso de que la letra no este en el diccionario
+            return [mayus_char, char], False
     
     # numeros.
     if char.isdigit():
         braille_char = numbers.get(char)
         if not is_in_number_sequence:
-            return ["⠼", braille_char], True
+            # iniciar la secuencia de numeros
+            return [number_char, braille_char], True
         else:
             return braille_char, True
     
@@ -139,9 +143,7 @@ def _translate_char(char: str, is_in_number_sequence: bool) -> tuple[str | list,
     else:
         return char, False
 
-# Convertir los caracteres de braille a combinaciones de numeros que sirven para la activacion de actuadores.
 def send_braille_characters(data):
-    # mapeo de caracteres braille a posiciones de punto
     dot_positions = {
         "⠁": [1],
         "⠃": [1, 2],
@@ -192,24 +194,6 @@ def send_braille_characters(data):
         "⠠": [6],
     }
     
-    def print_braille_cell(positions):
-        """visual de la celda braille."""
-        cell = {1: '○', 2: '○', 3: '○', 4: '○', 5: '○', 6: '○'}
-        
-        for pos in positions:
-            cell[pos] = '●'
-        
-        print(f"    {cell[1]} {cell[4]}")
-        print(f"    {cell[2]} {cell[5]}")
-        print(f"    {cell[3]} {cell[6]}")
-    
-    def process_char(char):
-        if char in dot_positions:
-            return dot_positions[char]
-        else:
-            print(f"Caracter no mapeado: {char}")
-            return []
-    
     def process_word(word_list):
         result = []
         print(f"\nPalabra: {''.join(word_list)}")
@@ -219,9 +203,7 @@ def send_braille_characters(data):
             print(f"\nCaracter {i+1}: {braille_char} → Puntos: {positions}")
             print_braille_cell(positions)
         return result
-    
-    # detectar el tipo de estructura y procesarla
-    
+        
     if not data:
         return []
     
@@ -255,20 +237,6 @@ def send_braille_characters(data):
     
     return []
 
-def interactive_test():
-    print("traductor de braille")
-    print("Escribe 'salir' para terminar")
-    
-    while True:
-        text = input("\nIngresa texto: ")
-        if text.lower() == 'salir':
-            break
-        
-        if not text.strip():
-            continue
-        
-        print(f"\ntexto original: {text}")
-        translated_characters = braille_translate(text)
-        send_braille_characters(translated_characters)
-
-#interactive_test()
+# TODO: in order to sent them to the display
+def convert_chars_to_dots(char):
+    pass
