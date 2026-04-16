@@ -15,6 +15,8 @@ from database import get_session
 import schemas
 load_dotenv()
 
+# uninstall all the shit i have installed of downgraded python libraries
+
 MODELO_ENTRENADO = model_path = os.getenv("NLU_MODEL_PATH")
 silence_seconds = 0
 

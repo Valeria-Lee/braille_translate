@@ -66,7 +66,7 @@ KEYWORDS = {
 }
 
 def normalize(text: str):
-    # Elimina acentos y convierte a minusculas
+    # TODO: Elimina acentos y convierte a minusculas
     text = text.lower()
 
 def classification_engine(text: str):
@@ -87,6 +87,6 @@ def classification_engine(text: str):
     
     print(scores)
 
-    # find the biggest value in the dictionary
+    # TODO: find the biggest value in the dictionary and return the assigned "task"
 
 classification_engine("navegar a libro que se llama tal")
