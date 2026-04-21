@@ -2,20 +2,19 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
-# filler words
+def _select_word_stemming() -> str:
+    pass
 
-# repetition cleaning like "yo yo quiero" > "yo quiero"
-
-# punctuation restoration
-
-
-# TODO: stemming / raiz
+def _delete_repeated_words():
+    pass
 
 def normalize_text(text: str) -> str:
     nltk.download('stopwords')
     nltk.download('punkt')
+    
+    lower_text = text.lower()
 
-    tokenized_text = nltk.word_tokenize(text.lower())
+    tokenized_text = nltk.word_tokenize(lower_text)
 
     stop_words = set(stopwords.words('spanish'))
     filtered_text = [x for x in tokenized_text if x not in stop_words]
