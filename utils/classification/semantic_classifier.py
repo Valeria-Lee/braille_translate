@@ -17,7 +17,7 @@ task_intents = {
         "necesito ver el documento seleccionado",
         "muéstrame el archivo de la tarea",
         "acceder a mis lecturas guardadas",
-        "¿puedes abrir el informe final en formato Word?",
+        "¿puedes abrir el informe final en formato word?",
         "quiero visualizar el PDF de referencia",
         "abrir el documento de apuntes",
         "leer el archivo guardado anteriormente"
@@ -33,38 +33,41 @@ task_intents = {
         "mostrar el inventario de libros de historia universal"
     ],
     "traducir": [
-        "traduce este fragmento de literatura a sistema Braille",
-        "pasa esta frase de mi libro a Braille",
-        "¿cómo se escribe mi nombre en puntos Braille?",
-        "convierte este texto universitario a Braille",
-        "traducir este párrafo de cuento al Braille, por favor",
-        "generar la versión en Braille de este poema clásico",
-        "transcribir este manual técnico al sistema Braille",
-        "pasar esta lectura a formato Braille para impresión"
+        "traduce este fragmento de literatura a sistema braille",
+        "pasa esta frase de mi libro a braille",
+        "¿cómo se escribe mi nombre en puntos braille?",
+        "convierte este texto universitario a braille",
+        "traducir este párrafo de cuento al braille, por favor",
+        "generar la versión en braille de este poema clásico",
+        "transcribir este manual técnico al sistema braille",
+        "pasar esta lectura a formato braille para impresión",
+        "traducir esta frase a braille",
+        "traducir este teorema matemático al sistema braille"        
     ]
 }
 
-"""
-if best_score > 0.80:
-    execute(intent)
-elif best_score >s 0.60:
-    ask_for_clarification()
-else:
-    ignore_or_reprompt()
-"""
-
-# TODO: add confidence thresold, and text normalization
+confidence_treholds = {
+    "agregar_documento": 0.0,
+    "acceder_documento": 0.0,
+    "buscar_catalogo": 0.0,
+    "traducir": 0.8,
+    "fallback": 0.0
+}
 
 model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
 
+intent_embeddings = {}
+
+for intent_name, phrases in task_intents.items():
+    normalized_intents = [normalize_text(phrase) for phrase in phrases]
+    print(f"el tipo de normalized intents: {type(normalized_intents[0])}")
+    intent_embeddings[intent_name] = model.encode(normalized_intents)
+
 def classify(user_query: str):
-    intent_embeddings = {}
+    normalized_input = normalize_text(user_query)
 
-    for intent_name, phrases in task_intents.items():
-        intent_embeddings[intent_name] = model.encode(phrases)
-
-    input_sentence = user_query
-    input_embeddings = model.encode(input_sentence)
+    input_sentence = normalized_input
+    input_embeddings = model.encode([input_sentence])
 
     similarities = {}
     prev_top_score = None
@@ -73,21 +76,33 @@ def classify(user_query: str):
     for intent_name, intents in intent_embeddings.items():
         similarities[intent_name] = model.similarity(input_embeddings, intents)
 
-    print(similarities)
-
-    # loop through it to get max value per intent and intent name
     for intent_name in similarities.keys():
+        current_score = similarities[intent_name].max()
+        current_intent = intent_name
+
         if prev_top_score == None:
-            top_score = similarities[intent_name].max()
-            prev_top_score = top_score
-            top_intent = intent_name
-        else:    
-            current_score = similarities[intent_name].max()
-            
+            prev_top_score = current_score
+            top_intent = current_intent
+        else:         
             if current_score > prev_top_score:
                 prev_top_score = current_score
                 top_intent = intent_name
     
     print(prev_top_score, top_intent)
 
-classify("Hola, como estas? Esto es una oracion, supongo.")
+    # this is where a value is return, maybe a string so i can match it from main for executing
+    if prev_top_score > confidence_treholds[top_intent]:
+        res = {
+            "intent": top_intent,
+            "confidence": prev_top_score.item()
+        }
+
+        print(res)
+
+        return res
+    elif prev_top_score > confidence_treholds[intent_name] - 0.2:
+        # ask clarification: is this what you wanted to do?
+        pass
+    else:
+        # reprompt
+        pass

@@ -2,22 +2,17 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
 from fastapi.responses import HTMLResponse
 from utils.audio import speech_to_text
 from utils.braille_translation import braille_translate, send_braille_characters
+from utils.classification.semantic_classifier import classify
 from starlette import status
 from starlette.responses import RedirectResponse
 from starlette.concurrency import run_in_threadpool
-from rasa.core.agent import Agent
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from sqlalchemy.ext.asyncio import AsyncSession
 from routers import files, users
 import requests, uvicorn, os, re
-from database import get_session
-import schemas
+
 load_dotenv()
 
-# uninstall all the shit i have installed of downgraded python libraries
-
-MODELO_ENTRENADO = model_path = os.getenv("NLU_MODEL_PATH")
 silence_seconds = 0
 
 html = """
@@ -118,21 +113,16 @@ html = """
 </html>
 """
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
-    finally:
-        global agent
-        agent = Agent.load(MODELO_ENTRENADO)
-        yield
+    except Exception as e:
+        print(f"Error: {e}")
 
 app = FastAPI(lifespan=lifespan)
-    
-app.include_router(users.router)
-app.include_router(files.router)
+router = APIRouter(prefix='/api')
 
 @app.get("/")
 async def root():
@@ -141,24 +131,26 @@ async def root():
 # websocket
 @app.websocket("/commands")
 async def receive_command(websocket: WebSocket):
-    if agent:
-        await websocket.accept()
-        try:
-            while True:
-                final_text = await run_in_threadpool(speech_to_text)
+    await websocket.accept()
+    try:
+        while True:
+            final_text = await run_in_threadpool(speech_to_text)
 
-                if not final_text:
-                    continue
+            if not final_text:
+                continue
 
-                print("Final:", final_text)
+            print("Final:", final_text)
 
+            nav_task = classify(final_text)
+
+                '''
                 # clasificar intencion con rasa
                 nav_task = await agent.parse_message(final_text)
                 prediction_intent = nav_task["intent"]
                 intent = prediction_intent["name"]
                 confidence = prediction_intent["confidence"]
 
-                # enviar mensaje final al frontend
+                # enviar texto final al frontend
                 await websocket.send_json({
                     "type": "transcription",
                     "text": final_text,
@@ -178,107 +170,11 @@ async def receive_command(websocket: WebSocket):
                         "type": "unknown",
                         "intent": intent,
                         "message": "Intent no implementado"
-                    })'''
+                    })
+
+                '''
                         
         except WebSocketDisconnect:
             print("Cliente desconectado")
     else:
         print("no hay modelito cargado")
-    
-'''
-elif intent == "upload":
-await websocket.send_json({
-    "type": "upload",
-    "status": "ready"
-})
-'''
-
-@app.post("/browse")
-async def browse(prompt: str):
-    system_prompt = (
-        "Eres un asistente de búsqueda. Tu tarea es proporcionar una respuesta "
-        "útil y completa que responda directamente a la pregunta del usuario. "
-        "La respuesta debe ser concisa, en no más de 50 palabras. "
-        "No uses introducciones, negritas, cursivas ni saltos de línea. "
-        "Da una respuesta directa y clara."
-    )
-    
-    full_prompt = f"{system_prompt}\n\nUsuario: {prompt}"
-
-    response = requests.post(
-        "http://localhost:11434/api/generate",
-        json={
-            "model": "gemma3:270m",
-            "prompt": full_prompt, 
-            "stream": False,
-            "options": {
-                "temperature": 0.1,  # menos creativo
-                "num_ctx": 1024 # longitud max del resumen
-            }
-        }
-    )
-    full_response = response.json()
-    formatted_text_response = full_response["response"]
-
-    text_response = re.sub(r'(\*\*|\*|__|_|`)', '', formatted_text_response)
-    text_response = re.sub(r'\n', ' ', text_response)
-
-    return {"Respuesta": text_response}
-
-@app.get("/acceso-directo")
-async def pseudo_ruta_acceso_directo():
-    return {"mensaje": "Esta es la pseudo-ruta de Acceso Directo. La funcionalidad real se ejecuta en el WebSocket."}
-
-@app.get("/agregar-archivo")
-async def pseudo_ruta_agregar_archivo():
-    return {"mensaje": "Esta es la pseudo-ruta de Agregar Archivo. Prepara la UI para la subida de un archivo."}
-    
-'''
-@app.post("/users/", response_model=schemas.User)
-async def create_user(user: schemas.UserCreate, db: AsyncSession = Depends(get_session)):
-    return await crud.create_user(db, user)
-
-@app.get("/users/{user_id}", response_model=schemas.User)
-async def get_user(user_id: int, db: AsyncSession = Depends(get_session)):
-    user = await crud.get_user(db, user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    return user
-
-@app.post("/files/", response_model=schemas.File)
-async def create_file(
-    title: str,
-    user_id: int,
-    file: UploadFile = FileField(...),
-    db: AsyncSession = Depends(get_session)
-):
-    content = await file.read()
-
-    file_data = schemas.FileCreate(
-        title=title,
-        file=content
-    )
-
-    return await crud.create_file(db, file_data, user_id)
-
-@app.get("/files/{file_id}", response_model=schemas.File)
-async def get_file(file_id: int, db: AsyncSession = Depends(get_session)):
-    file = await crud.get_file(db, file_id)
-    if not file:
-        raise HTTPException(status_code=404, detail="Archivo no encontrado")
-    return file
-
-@app.get("/files/search/", response_model=List[schemas.File])
-async def search_files(title: str, db: AsyncSession = Depends(get_session)):
-    from sqlalchemy import select
-    from models import File
-
-    query = select(File).where(File.title.ilike(f"%{title}%"))
-    result = await db.execute(query)
-    files = result.scalars().all()
-
-    if not files:
-        raise HTTPException(status_code=404, detail="No se encontraron archivos")
-
-    return files
-'''
