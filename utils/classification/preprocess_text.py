@@ -1,36 +1,34 @@
-import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-import re
+import nltk, spacy, unicodedata
 
-# quitar comas se le puedan anadir
+def _delete_accents(text: str) -> str:
+    nfkd_str = unicodedata.normalize('NFKD', text)
+    return "".join([c for c in nfkd_str if not unicodedata.combining(c)])
 
-def _remove_stopwords(text: str) -> str:
-    stop_words = set(stopwords.words('spanish'))
-    filtered_text = [x for x in text if x not in stop_words]
-
-    return filtered_text
-
-def _select_word_stemming(text) -> list():
-    porter = nltk.PorterStemmer()
-    # lancaster = nltk.LancasterStemmer()
-
-    porter_text = [porter.stem(word) for word in text]
-
-    return porter_text
+def _turn_words_into_root(text: str) -> list():
+    nlp = spacy.load("es_core_news_sm")
+    doc = nlp(text)
+    return " ".join(t.lemma_ for t in doc)
 
 def normalize_text(text: str) -> str:
-    nltk.download('stopwords')
-    nltk.download('punkt')
+    nltk.download('stopwords', quiet=True)
+    nltk.download('punkt', quiet=True)
     
     lower_text = text.lower()
 
     tokenized_text = nltk.word_tokenize(lower_text)
+    tokenized_text = " ".join([t for t in tokenized_text])
 
-    removed_stopwords = _remove_stopwords(tokenized_text)
-    print(removed_stopwords)
+    removed_accents = _delete_accents(tokenized_text)
 
-    stemmer_text = _select_word_stemming(removed_stopwords)
-    print(stemmer_text)
+    lemmarize_text = _turn_words_into_root(removed_accents)
 
-    return " ".join(stemmer_text)
+    return "".join(lemmarize_text)
+
+def _select_word_stemming(text: str) -> list():
+    porter = nltk.PorterStemmer()
+
+    porter_text = "".join([porter.stem(word) for word in text])
+
+    return porter_text

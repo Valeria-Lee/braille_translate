@@ -4,7 +4,7 @@ import noisereduction as nr
 from vosk import Model, KaldiRecognizer, SetLogLevel
 
 def speech_to_text():
-    load_dotenv() # cambiar a settings + pydantic
+    load_dotenv() # settings + pydantic cuando se haga deploy
     model_path = os.getenv("MODEL_PATH")
 
     SetLogLevel(0)
@@ -30,8 +30,7 @@ def speech_to_text():
         if recognizer.AcceptWaveform(reduced_noise_data):
             result = recognizer.Result()
 
-        partial_result = recognizer.PartialResult() # if needed to display
-
+        partial_result = recognizer.PartialResult()
 
     stream.stop_stream()
     stream.close()

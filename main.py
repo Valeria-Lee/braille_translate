@@ -143,6 +143,13 @@ async def receive_command(websocket: WebSocket):
 
             nav_task = classify(final_text)
 
+            if nav_task["intent"] == "fallback":
+                pass # return json asking to reprompt
+            elif nav_task["intent"] == "clarification":
+                pass # return json asking for clarification: quisiste decir possible intent?
+            elif nav_task["intent"] != None:
+                pass # work with intents
+
                 '''
                 # clasificar intencion con rasa
                 nav_task = await agent.parse_message(final_text)

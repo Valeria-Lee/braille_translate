@@ -1,5 +1,5 @@
 from sentence_transformers import SentenceTransformer
-from preprocess_text import normalize_text
+from utils.classification.preprocess_text import normalize_text
 
 task_intents = {
     "agregar_documento": [
@@ -10,7 +10,23 @@ task_intents = {
         "añadir un nuevo registro documental",
         "cargar documento nuevo para procesar",
         "sube este PDF a mi colección personal",
-        "adjuntar archivo de investigación"
+        "adjuntar archivo de investigación",
+        "súbete esta tarea a la nube",
+        "pon este documento en mi carpeta",
+        "anexar este reporte al sistema",
+        "registrar nuevo archivo en mi cuenta",
+        "métele este archivo al sistema",
+        "ándale sube este PDF ahorita",
+        "voy a subir un archivo nuevo",
+        "échale este documento a mi cuenta",
+        "agarra este archivo y guárdalo",
+        "mete este libro a mi biblioteca",
+        "ayúdame a subir este documento",
+        "ya estuvo, súbelo a mi carpeta",
+        "pérate, voy a cargar este archivo",
+        "dale y sube este PDF a mi colección",
+        "subir", "cargar", "guardar", "importar", "adjuntar", "añadir",
+        "registrar", "meter", "agregar",
     ],
     "acceder_documento": [
         "abrir el libro que estaba leyendo ayer",
@@ -20,7 +36,23 @@ task_intents = {
         "¿puedes abrir el informe final en formato word?",
         "quiero visualizar el PDF de referencia",
         "abrir el documento de apuntes",
-        "leer el archivo guardado anteriormente"
+        "leer el archivo guardado anteriormente",
+        "échame la mano abriendo el PDF de ayer",
+        "ponme en pantalla mi lectura actual",
+        "continuar leyendo mi libro",
+        "recuperar mi lectura guardada",
+        "ábrete el informe que guardé",
+        "ábreme el documento ese que guardé ayer",
+        "jálame el archivo que tenía abierto",
+        "ahorita quiero ver mi lectura de ayer",
+        "órale, ábrelo ya",
+        "sácame el libro que estaba checando",
+        "no encuentro mi documento, ábrelo tú",
+        "dale, ponme el libro ese en pantalla",
+        "pérate, primero ábrelo que lo quiero leer",
+        "ya estuvo, muéstrame el informe",
+        "abrir", "leer", "visualizar", "acceder", "ver", "mostrar",
+        "recuperar", "continuar", "reanudar",
     ],
     "buscar_catalogo": [
         "¿qué libros hay disponibles sobre ingeniería civil?",
@@ -30,7 +62,23 @@ task_intents = {
         "¿tienen algún documento sobre microcontroladores en la base de datos?",
         "explorar la sección de literatura clásica",
         "buscar cuentos de misterio y leyendas",
-        "mostrar el inventario de libros de historia universal"
+        "mostrar el inventario de libros de historia universal",
+        "busca artículos sobre termodinámica",
+        "¿qué archivos nuevos hay en el catálogo?",
+        "chécate si hay libros de redes en la lista",
+        "dame una lista de los libros disponibles",
+        "a ver qué libros de física hay por ahí",
+        "oye, ¿hay algo de programación en el catálogo?",
+        "¿qué tienen de novelas de terror?",
+        "busca algo de química pa mi tarea",
+        "¿hay libros de historia en el inventario o no?",
+        "¿qué hay en el catálogo de matemáticas?",
+        "¿tienen algo sobre la historia de Campeche?",
+        "dale, chécame si hay libros de cultura",
+        "¿habrá algo de leyendas en el catálogo?",
+        "pérate, busca si tienen cuentos",
+        "buscar", "explorar", "listar", "checar", "consultar",
+        "mostrar catálogo", "ver disponibles", "encontrar",
     ],
     "traducir": [
         "traduce este fragmento de literatura a sistema braille",
@@ -42,16 +90,29 @@ task_intents = {
         "transcribir este manual técnico al sistema braille",
         "pasar esta lectura a formato braille para impresión",
         "traducir esta frase a braille",
-        "traducir este teorema matemático al sistema braille"        
-    ]
+        "traducir este teorema matemático al sistema braille",
+        "échame la mano traduciendo esto a braille",
+        "cámbiame esta frase a puntos braille",
+        "sácame la versión en braille de esta fábula",
+        "¿cómo se pone este teorema en braille?",
+        "pásame este texto a braille ahorita",
+        "órale, conviérteme esto a puntos braille",
+        "necesito que me lo pongas en braille ya",
+        "¿puedes pasarme este párrafo a braille?",
+        "¿cómo se escribe esto en braille?",
+        "dale, pásame esta leyenda a braille",
+        "pérate, conviérteme este texto a braille",
+        "ya estuvo, tradúceme esto a puntos braille",
+        "traducir", "convertir", "transcribir", "pasar a braille",
+        "transformar", "cambiar a braille", "generar braille",
+    ],
 }
 
 confidence_treholds = {
-    "agregar_documento": 0.0,
-    "acceder_documento": 0.0,
-    "buscar_catalogo": 0.0,
+    "agregar_documento": 0.7,
+    "acceder_documento": 0.7,
+    "buscar_catalogo": 0.65,
     "traducir": 0.8,
-    "fallback": 0.0
 }
 
 model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
@@ -60,7 +121,6 @@ intent_embeddings = {}
 
 for intent_name, phrases in task_intents.items():
     normalized_intents = [normalize_text(phrase) for phrase in phrases]
-    print(f"el tipo de normalized intents: {type(normalized_intents[0])}")
     intent_embeddings[intent_name] = model.encode(normalized_intents)
 
 def classify(user_query: str):
@@ -90,19 +150,19 @@ def classify(user_query: str):
     
     print(prev_top_score, top_intent)
 
-    # this is where a value is return, maybe a string so i can match it from main for executing
     if prev_top_score > confidence_treholds[top_intent]:
-        res = {
+        return {
             "intent": top_intent,
             "confidence": prev_top_score.item()
         }
-
-        print(res)
-
-        return res
     elif prev_top_score > confidence_treholds[intent_name] - 0.2:
-        # ask clarification: is this what you wanted to do?
-        pass
+        return {
+            "intent": "clarification",
+            "possible_item": top_intent,
+            "confidence": prev_top_score.item()
+        }
     else:
-        # reprompt
-        pass
+        return {
+            "intent": "fallback",
+            "confidence": prev_top_score.item()
+        }
