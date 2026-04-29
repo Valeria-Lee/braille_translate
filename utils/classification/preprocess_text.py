@@ -1,15 +1,15 @@
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
-import nltk, spacy, unicodedata
+import nltk, unicodedata
 
 def _delete_accents(text: str) -> str:
     nfkd_str = unicodedata.normalize('NFKD', text)
     return "".join([c for c in nfkd_str if not unicodedata.combining(c)])
 
 def _turn_words_into_root(text: str) -> list():
-    nlp = spacy.load("es_core_news_sm")
-    doc = nlp(text)
-    return " ".join(t.lemma_ for t in doc)
+    porter = nltk.PorterStemmer()
+    tokens = text.split()
+    return " ".join(porter.stem(word) for word in tokens)
 
 def normalize_text(text: str) -> str:
     nltk.download('stopwords', quiet=True)
@@ -25,10 +25,3 @@ def normalize_text(text: str) -> str:
     lemmarize_text = _turn_words_into_root(removed_accents)
 
     return "".join(lemmarize_text)
-
-def _select_word_stemming(text: str) -> list():
-    porter = nltk.PorterStemmer()
-
-    porter_text = "".join([porter.stem(word) for word in text])
-
-    return porter_text
