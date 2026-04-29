@@ -125,7 +125,7 @@ for intent_name, phrases in task_intents.items():
         phrase_labels.append(intent_name)
 
 vectorizer = TfidfVectorizer()
-vectors = _vectorizer.fit_transform(_all_phrases)
+vectors = vectorizer.fit_transform(_all_phrases)
 
 def classify(user_query: str):
     normalized_input = normalize_text(user_query)

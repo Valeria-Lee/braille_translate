@@ -10,7 +10,7 @@ def braille_translate(text: str) -> list:
         is_in_number_sequence = False
         sentence_result = []                     
  
-        for j, word in enumerate(sentence):         # FIX: iterar sobre `sentence`, no `sentence_list`
+        for j, word in enumerate(sentence):
             braille_word = []
  
             for k, char in enumerate(word):
@@ -29,8 +29,8 @@ def braille_translate(text: str) -> list:
                         is_in_number_sequence = False
  
             is_in_number_sequence = False
-            sentence_result.append(braille_word)   # FIX: agregar palabra al resultado
- 
+            sentence_result.append(braille_word)
+            
         tokenized_paragraph.append(sentence_result)
  
     return tokenized_paragraph
