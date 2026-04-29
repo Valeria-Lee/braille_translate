@@ -167,6 +167,18 @@ async def device_endpoint(websocket: WebSocket):
     except Exception as e:
         await braille_device.on_disconnect()
 
+@app.get("/device/status")
+async def device_status():
+    return {
+        "connected": braille_device.is_connected,
+        "cells": braille_device.cells,
+    }
+
+@app.post("/device/off")
+async def device_off():
+    ok = await braille_device.emergency_off()
+    return {"ok": ok}
+
 # websocket
 @app.websocket("/commands")
 async def receive_command(websocket: WebSocket):
