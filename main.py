@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, APIRouter
 from fastapi.responses import HTMLResponse
-from utils.audio import speech_to_text
+from utils.audio import new_recognizer, transcribe_chunk
 from utils.braille_translation import braille_translate, send_braille_characters
 from utils.classification.semantic_classifier import classify
 from starlette.concurrency import run_in_threadpool
@@ -119,7 +119,8 @@ html = """
 async def handle_intent(intent: str, text: str, websocket: WebSocket):
     if intent == "traducir":
         braille = braille_translate(text)
-        await run_in_threadpool(send_braille_characters, braille)
+        if braille_device.is_connected:
+            ok = await braille_device.send_paragraph(braille)
         await websocket.send_json({
             "type": "traduccion",
             "braille": braille
@@ -148,28 +149,35 @@ async def root():
 @app.websocket("/commands")
 async def receive_command(websocket: WebSocket):
     await websocket.accept()
+    recognizer = new_recognizer()
     try:
         while True:
-            final_text = await run_in_threadpool(speech_to_text)
+            data = await websocket.receive_bytes()
+            result = transcribe_chunk(data, recognizer)
 
-            if not final_text:
-                continue
-
-            nav_task = classify(final_text)
-
-            if nav_task["intent"] == "fallback":
+            if result["type"] == "partial":
                 await websocket.send_json({
-                    "type": "fallback",
-                    "message": "No entendí, ¿puedes repetirlo?"
+                    "type": "partial_transcription",
+                    "text": result["text"]
                 })
-            elif nav_task["intent"] == "clarification":
-                await websocket.send_json({
-                    "type": "clarification",
-                    "message": f"¿Quisiste decir {nav_task['candidate']}?",
-                    "candidate": nav_task["candidate"]
-                })
-            else:
-                await handle_intent(nav_task["intent"], final_text, websocket)
+
+            elif result["type"] == "transcription" and result["text"]:
+                final_text = result["text"]
+                nav_task = classify(final_text)
+
+                if nav_task["intent"] == "fallback":
+                    await websocket.send_json({
+                        "type": "fallback",
+                        "message": "No entendí, ¿puedes repetirlo?"
+                    })
+                elif nav_task["intent"] == "clarification":
+                    await websocket.send_json({
+                        "type": "clarification",
+                        "message": f"¿Quisiste decir {nav_task['candidate']}?",
+                        "candidate": nav_task["candidate"]
+                    })
+                else:
+                    await handle_intent(nav_task["intent"], final_text, websocket)
 
     except WebSocketDisconnect:
         print("Cliente desconectado")
