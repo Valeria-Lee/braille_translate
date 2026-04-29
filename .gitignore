@@ -4,3 +4,4 @@ utils/model/
 .env
 /py311_env
 .rasa
+usr/bin/*
