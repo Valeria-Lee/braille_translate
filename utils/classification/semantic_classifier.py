@@ -1,5 +1,7 @@
-from sentence_transformers import SentenceTransformer
+import spacy
+import numpy as np
 from utils.classification.preprocess_text import normalize_text
+from sklearn.metrics.pairwise import cosine_similarity
 
 task_intents = {
     "agregar_documento": [
@@ -115,26 +117,26 @@ confidence_treholds = {
     "traducir": 0.8,
 }
 
-model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
+nlp = spacy.load("es_core_news_sm")
 
 intent_embeddings = {}
 
 for intent_name, phrases in task_intents.items():
     normalized_intents = [normalize_text(phrase) for phrase in phrases]
-    intent_embeddings[intent_name] = model.encode(normalized_intents)
+    intent_embeddings[intent_name] = np.array(nlp(p).vector for p in normalized_intents)
 
 def classify(user_query: str):
     normalized_input = normalize_text(user_query)
 
     input_sentence = normalized_input
-    input_embeddings = model.encode([input_sentence])
+    input_embeddings = np.array([nlp(input_sentence).vector])
 
     similarities = {}
     prev_top_score = None
     top_intent = None
 
     for intent_name, intents in intent_embeddings.items():
-        similarities[intent_name] = model.similarity(input_embeddings, intents)
+        similarities[intent_name] = cosine_similarity(input_embeddings, intents)
 
     for intent_name in similarities.keys():
         current_score = similarities[intent_name].max()
