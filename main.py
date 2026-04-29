@@ -2,19 +2,17 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, APIRouter
 from fastapi.responses import HTMLResponse
 from utils.audio import speech_to_text
 from utils.braille_translation import braille_translate, send_braille_characters
-from utils.classification.task_classification import classify
+from utils.classification.semantic_classifier import classify
 from starlette.concurrency import run_in_threadpool
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from routers import users, documentos, traducir, test_braille
+from routers import traducir, test_braille # users, documentos
 import uvicorn
 
 load_dotenv()
 
 app = FastAPI()
 
-app.include_router(users.router)
-app.include_router(documentos.router)
 app.include_router(traducir.router)
 app.include_router(test_braille.router)
 

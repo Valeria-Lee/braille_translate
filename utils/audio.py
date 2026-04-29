@@ -1,6 +1,6 @@
 import pyaudio
 from scipy.io import wavfile
-import noisereduction as nr
+import noisereduce as nr
 from vosk import Model, KaldiRecognizer, SetLogLevel
 
 def speech_to_text():
