@@ -7,6 +7,7 @@ from starlette.concurrency import run_in_threadpool
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from routers import traducir, test_braille # users, documentos
+from utils.device import braille_device
 import uvicorn
 
 load_dotenv()
@@ -144,6 +145,26 @@ async def handle_intent(intent: str, text: str, websocket: WebSocket):
 @app.get("/")
 async def root():
     return HTMLResponse(html)
+
+@app.websocket("/device")
+async def device_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        hello = await websocket.receive_json()
+        if hello.get("type") != "hello":
+            await websocket.close()
+            return
+        cells = hello.get("cells", 1)
+        await braille_device.on_connect(websocket, cells)
+        while True:
+            msg = await websocket.receive_json()
+            if msg.get("type") == "ping":
+                continue
+            await braille_device.on_message(msg)
+    except WebSocketDisconnect:
+        await braille_device.on_disconnect()
+    except Exception as e:
+        await braille_device.on_disconnect()
 
 # websocket
 @app.websocket("/commands")
