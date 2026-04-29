@@ -1,7 +1,6 @@
-import spacy
-import numpy as np
 from utils.classification.preprocess_text import normalize_text
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 task_intents = {
     "agregar_documento": [
@@ -111,25 +110,29 @@ task_intents = {
 }
 
 confidence_treholds = {
-    "agregar_documento": 0.7,
-    "acceder_documento": 0.7,
-    "buscar_catalogo": 0.65,
-    "traducir": 0.8,
+    "agregar_documento": 0.15,
+    "acceder_documento": 0.15,
+    "buscar_catalogo": 0.15,
+    "traducir": 0.15,
 }
 
-nlp = spacy.load("es_core_news_sm")
-
-intent_embeddings = {}
+all_phrases = []
+phrase_labels = []
 
 for intent_name, phrases in task_intents.items():
-    normalized_intents = [normalize_text(phrase) for phrase in phrases]
-    intent_embeddings[intent_name] = np.array(nlp(p).vector for p in normalized_intents)
+    for phrase in phrases:
+        all_phrases.append(normalize_text(phrase))
+        phrase_labels.append(intent_name)
+
+vectorizer = TfidfVectorizer()
+vectors = _vectorizer.fit_transform(_all_phrases)
 
 def classify(user_query: str):
     normalized_input = normalize_text(user_query)
 
     input_sentence = normalized_input
-    input_embeddings = np.array([nlp(input_sentence).vector])
+    
+    input_embeddings = vectorizer.transform([input_sentence])
 
     similarities = {}
     prev_top_score = None
@@ -137,6 +140,9 @@ def classify(user_query: str):
 
     for intent_name, intents in intent_embeddings.items():
         similarities[intent_name] = cosine_similarity(input_embeddings, intents)
+
+        indices = [i for i, l in enumerate(phrase_labels) if l == intent_name]
+        similarities[intent_name] = cosine_similarity(input_embeddings, vectors[indices])
 
     for intent_name in similarities.keys():
         current_score = similarities[intent_name].max()
