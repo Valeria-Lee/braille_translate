@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+nltk
+scikit-learn
+scipy
+numpy
+vosk
+noisereduce
+websockets
+srt
