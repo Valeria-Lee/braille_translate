@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from routers import traducir, test_braille # users, documentos
 from utils.device import braille_device
+
 import uvicorn
 
 load_dotenv()

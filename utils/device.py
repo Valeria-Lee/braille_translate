@@ -1,202 +1,122 @@
-"""
-utils/device.py
-─────────────────────────────────────────────────────────────────
-Interfaz serial entre FastAPI y el ESP8266 (BrailLearn).
-
-Configuración (.env):
-DEVICE_PORT=/dev/ttyUSB0      # Linux
-DEVICE_PORT=COM3              # Windows
-DEVICE_BAUD=115200
-
-Mapeo físico de la celda conectada (pines 24-31 → chip índice 3):
-    Punto Braille 1 → solenoid 24
-    Punto Braille 2 → solenoid 25
-    Punto Braille 3 → solenoid 26
-    Punto Braille 4 → solenoid 27
-    Punto Braille 5 → solenoid 28
-    Punto Braille 6 → solenoid 29
-
-    Si cambias la celda activa, ajusta CELL_BASE_POINT.
-"""
-
-import os
-import time
-import threading
+import asyncio
 import logging
-import serial
-import serial.tools.list_ports
+from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
 
-DEVICE_PORT  = os.getenv("DEVICE_PORT", "")   # e.g. /dev/ttyUSB0 o COM3
-DEVICE_BAUD  = int(os.getenv("DEVICE_BAUD", "115200"))
-DEVICE_TIMEOUT = 5  # segundos de espera para respuesta del ESP
-
-# Punto de inicio del solenoide 0 de la celda activa.
-# La celda está en pines 24-31 → chip index 3 → punto base = 24
-CELL_BASE_POINT = int(os.getenv("CELL_BASE_POINT", "24"))
-
-
-# ──────────────────────────────────────────────
-# Singleton de conexión serial (thread-safe)
-# ──────────────────────────────────────────────
 class BrailleDevice:
-    _instance = None
-    _lock = threading.Lock()
+    def __init__(self):
+        self._ws: WebSocket | None = None
+        self._cells: int = 0
+        self._done_event = asyncio.Event()
+        self._lock = asyncio.Lock()
 
-    def __new__(cls):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super().__new__(cls)
-                cls._instance._serial = None
-                cls._instance._serial_lock = threading.Lock()
-            return cls._instance
+    @property
+    def is_connected(self) -> bool:
+        return self._ws is not None
 
-    # ── Conexión ──────────────────────────────
-    def connect(self, port: str = None, baud: int = None) -> bool:
-        port = port or DEVICE_PORT
-        baud = baud or DEVICE_BAUD
+    @property
+    def cells(self) -> int:
+        return self._cells
 
-        if not port:
-            port = self._auto_detect_port()
+    async def on_connect(self, websocket: WebSocket, cells: int):
+        self._ws    = websocket
+        self._cells = cells
+        self._done_event.clear()
+        logger.info(f"ESP8266 conectado — {cells} celda(s)")
 
-        if not port:
-            logger.error("No se encontró el puerto del ESP8266. "
-                         "Define DEVICE_PORT en el .env")
+    async def on_disconnect(self):
+        self._ws    = None
+        self._cells = 0
+        self._done_event.set()
+        logger.warning("ESP8266 desconectado")
+
+    async def on_message(self, msg: dict):
+        msg_type = msg.get("type")
+        if msg_type == "done":
+            self._done_event.set()
+        elif msg_type == "error":
+            logger.error(f"ESP error: {msg.get('msg')}")
+            self._done_event.set()
+        elif msg_type == "hello":
+            self._cells = msg.get("cells", self._cells)
+
+    async def send_paragraph(self, braille_data: list) -> bool:
+        if not self.is_connected:
+            logger.error("Dispositivo no conectado")
             return False
 
-        try:
-            with self._serial_lock:
-                if self._serial and self._serial.is_open:
-                    self._serial.close()
-
-                self._serial = serial.Serial(
-                    port=port,
-                    baudrate=baud,
-                    timeout=DEVICE_TIMEOUT
-                )
-
-            # Esperar el "READY" del ESP después de su setup()
-            ready = self._wait_for_ready()
-            if ready:
-                logger.info(f"ESP8266 listo en {port} @ {baud} baud")
-            else:
-                logger.warning("No se recibió READY del ESP, "
-                               "pero la conexión está abierta")
+        chars_as_dots = _flatten_to_dots(braille_data)
+        if not chars_as_dots:
             return True
 
-        except serial.SerialException as e:
-            logger.error(f"Error al abrir {port}: {e}")
+        cells = self._cells if self._cells > 0 else 1
+        lines = [chars_as_dots[i:i + cells] for i in range(0, len(chars_as_dots), cells)]
+
+        all_ok = True
+        async with self._lock:
+            for line_idx, line in enumerate(lines):
+                ok = await self._send_line(line, line_idx)
+                if not ok:
+                    all_ok = False
+                    break
+
+        return all_ok
+
+    async def emergency_off(self) -> bool:
+        if not self.is_connected:
             return False
-
-    def disconnect(self):
-        with self._serial_lock:
-            if self._serial and self._serial.is_open:
-                self._serial.close()
-                logger.info("Conexión serial cerrada")
-
-    def is_connected(self) -> bool:
-        return self._serial is not None and self._serial.is_open
-
-    # ── Envío de caracteres Braille ───────────
-    def send_braille_dots(self, dot_positions: list[int]) -> bool:
-        """
-        Envía los puntos activos de UN carácter Braille al ESP.
-
-        dot_positions: lista de enteros 1-6 (números de punto Braille estándar)
-                       Ej: [1, 2, 4] para 'f'
-
-        El ESP activa cada solenoide de forma secuencial (nunca dos a la vez).
-        Retorna True si el ESP respondió OK.
-        """
-        if not dot_positions:
-            return True  # nada que enviar
-
-        if not self.is_connected():
-            logger.warning("Dispositivo no conectado. Intentando reconectar...")
-            if not self.connect():
-                logger.error("No se pudo reconectar al dispositivo")
-                return False
-
-        # Convertir puntos braille (1-6) a números de solenoide absolutos
-        solenoid_nums = self._dots_to_solenoids(dot_positions)
-        if not solenoid_nums:
-            logger.warning(f"Puntos inválidos: {dot_positions}")
-            return False
-
-        # Construir comando: "DOTS:24,26,27\n"
-        payload = ",".join(str(s) for s in solenoid_nums)
-        cmd = f"DOTS:{payload}\n"
-
-        return self._send_command(cmd)
-
-    def all_off(self) -> bool:
-        """Apaga todos los solenoides de emergencia."""
-        return self._send_command("OFF\n")
-
-    # ── Utilidades internas ───────────────────
-    def _dots_to_solenoids(self, dots: list[int]) -> list[int]:
-        """
-        Convierte números de punto Braille (1-6) a números de solenoide.
-
-        Layout físico (pines 24-31, chip 3):
-            Dot 1 → solenoid CELL_BASE_POINT + 0
-            Dot 2 → solenoid CELL_BASE_POINT + 1
-            Dot 3 → solenoid CELL_BASE_POINT + 2
-            Dot 4 → solenoid CELL_BASE_POINT + 3
-            Dot 5 → solenoid CELL_BASE_POINT + 4
-            Dot 6 → solenoid CELL_BASE_POINT + 5
-        """
-        solenoids = []
-        for dot in dots:
-            if 1 <= dot <= 6:
-                solenoids.append(CELL_BASE_POINT + (dot - 1))
-            else:
-                logger.warning(f"Número de punto inválido: {dot} (debe ser 1-6)")
-        return solenoids
-
-    def _send_command(self, cmd: str) -> bool:
         try:
-            with self._serial_lock:
-                self._serial.reset_input_buffer()
-                self._serial.write(cmd.encode("ascii"))
-                self._serial.flush()
-
-                # Esperar respuesta "OK\n" o "ERR:...\n"
-                response = self._serial.readline().decode("ascii").strip()
-
-            if response == "OK":
-                return True
-            else:
-                logger.error(f"Respuesta inesperada del ESP: '{response}'")
-                return False
-
-        except serial.SerialException as e:
-            logger.error(f"Error de comunicación serial: {e}")
-            self._serial = None  # marcar como desconectado
+            await self._ws.send_json({"type": "off"})
+            return True
+        except Exception as e:
+            logger.error(f"Error al enviar off: {e}")
             return False
 
-    def _wait_for_ready(self, timeout: float = 3.0) -> bool:
-        """Lee líneas hasta recibir 'READY' o agotar el timeout."""
-        deadline = time.time() + timeout
-        while time.time() < deadline:
-            try:
-                line = self._serial.readline().decode("ascii").strip()
-                if line == "READY":
-                    return True
-            except Exception:
-                break
-        return False
+    async def _send_line(self, line: list, line_idx: int) -> bool:
+        self._done_event.clear()
+        try:
+            await self._ws.send_json({"type": "render", "chars": line})
+        except Exception as e:
+            logger.error(f"Error enviando línea {line_idx}: {e}")
+            return False
 
-    def _auto_detect_port(self) -> str:
-        """Intenta detectar el ESP8266 por descripción del puerto."""
-        for port_info in serial.tools.list_ports.comports():
-            desc = (port_info.description or "").lower()
-            if any(kw in desc for kw in ["cp210", "ch340", "esp", "uart", "usb serial"]):
-                logger.info(f"Puerto auto-detectado: {port_info.device} ({port_info.description})")
-                return port_info.device
-        return ""
+        estimated = len(line) * 6 * 0.07 + len(line) * 0.8 + 5
+        try:
+            await asyncio.wait_for(self._done_event.wait(), timeout=estimated)
+            return True
+        except asyncio.TimeoutError:
+            logger.error(f"Timeout línea {line_idx}")
+            return False
 
 
-# Instancia global (singleton)
+_DOT_MAP = {
+    "⠁": [1],         "⠃": [1, 2],       "⠉": [1, 4],       "⠙": [1, 4, 5],
+    "⠑": [1, 5],      "⠋": [1, 2, 4],    "⠛": [1, 2, 4, 5], "⠓": [1, 2, 5],
+    "⠊": [2, 4],      "⠚": [2, 4, 5],    "⠅": [1, 3],       "⠇": [1, 2, 3],
+    "⠍": [1, 3, 4],   "⠝": [1, 3, 4, 5], "⠕": [1, 3, 5],    "⠏": [1, 2, 3, 4],
+    "⠟": [1,2,3,4,5], "⠗": [1, 2, 3, 5], "⠎": [2, 3, 4],    "⠞": [2, 3, 4, 5],
+    "⠥": [1, 3, 6],   "⠧": [1, 2, 3, 6], "⠺": [2, 4, 5, 6], "⠭": [1, 3, 4, 6],
+    "⠽": [1,3,4,5,6], "⠵": [1, 3, 5, 6], "⠷": [1, 2, 3, 5, 6], "⠮": [2, 3, 4, 6],
+    "⠌": [3, 4],      "⠬": [2, 4, 6],    "⠾": [1, 2, 3, 5, 6], "⠳": [1, 2, 5, 6],
+    "⠂": [2],         "⠆": [2, 3],       "⠒": [2, 5],       "⠲": [2, 5, 6],
+    "⠦": [2, 3, 6],   "⠖": [2, 3, 5],    "⠄": [3],          "⠶": [2, 3, 5, 6],
+    "⠤": [3, 6],      "⠐": [5, 6],       "⠢": [2, 6],       "⠣": [1, 2, 6],
+    "⠜": [3, 4, 5],   "⠼": [3, 4, 5, 6], "⠠": [6],
+}
+
+
+def _flatten_to_dots(braille_data: list) -> list:
+    result = []
+    for sentence in braille_data:
+        for word_idx, word in enumerate(sentence):
+            for char in word:
+                dots = _DOT_MAP.get(char)
+                if dots is not None:
+                    result.append(dots)
+            if word_idx < len(sentence) - 1:
+                result.append([])
+    return result
+
+
 braille_device = BrailleDevice()
