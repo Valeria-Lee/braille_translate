@@ -4,4 +4,4 @@ utils/model/
 .env
 /py311_env
 .rasa
-usr/bin/*
+usr/bin/.oh-my-zsh
