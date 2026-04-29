@@ -1,37 +1,25 @@
-import pyaudio
-from scipy.io import wavfile
-import noisereduce as nr
 from vosk import Model, KaldiRecognizer, SetLogLevel
+import json, os
+from dotenv import load_dotenv
 
-def speech_to_text():
-    load_dotenv() # settings + pydantic cuando se haga deploy
-    model_path = os.getenv("MODEL_PATH")
+load_dotenv()
+SetLogLevel(0)
 
-    SetLogLevel(0)
+_model = None
 
-    RATE = 16000 # herz, standard
-    CHUNK = 4000
-    FORMAT = pyaudio.paInt16
-    CHANNELS = 1 # mono
+def get_model():
+    global _model
+    if _model is None:
+        _model = Model(os.getenv("MODEL_PATH"))
+    return _model
 
-    p = pyaudio.PyAudio()
+def transcribe_chunk(data: bytes, recognizer: KaldiRecognizer) -> dict:
+    if recognizer.AcceptWaveform(data):
+        result = json.loads(recognizer.Result())
+        return {"type": "transcription", "text": result.get("text", "")}
+    else:
+        partial = json.loads(recognizer.PartialResult())
+        return {"type": "partial", "text": partial.get("partial", "")}
 
-    stream = p.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True)
-
-    recognizer = KaldiRecognizer(model, RATE)
-
-    while True:
-        data = stream.read(CHUNK, exception_on_overflow=False) # bytes
-        reduced_noise_data = nr.reduce_noise(y=data, sr=RATE) # still bytes
-            
-        if not reduced_noise_data: # change it to data if it's not correctly detecting it
-            break
-
-        if recognizer.AcceptWaveform(reduced_noise_data):
-            result = recognizer.Result()
-
-        partial_result = recognizer.PartialResult()
-
-    stream.stop_stream()
-    stream.close()
-    p.terminate()
+def new_recognizer() -> KaldiRecognizer:
+    return KaldiRecognizer(get_model(), 16000)

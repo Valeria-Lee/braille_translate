@@ -11,3 +11,5 @@ services:
         value: 3.11.0
       - key: CELL_BASE_POINT
         value: 24
+      - key: MODEL_PATH
+        value: ./model

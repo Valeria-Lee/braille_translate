@@ -33,7 +33,6 @@ nvidia-nvshmem-cu13==3.4.5
 nvidia-nvtx==13.0.85
 ollama==0.6.1
 packaging==26.1
-PyAudio==0.2.14
 pycparser==2.23
 pydantic==2.12.5
 pydantic_core==2.41.5
