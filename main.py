@@ -1,17 +1,22 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Depends
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, APIRouter
 from fastapi.responses import HTMLResponse
 from utils.audio import speech_to_text
 from utils.braille_translation import braille_translate, send_braille_characters
-from utils.classification.semantic_classifier import classify
-from starlette import status
-from starlette.responses import RedirectResponse
+from utils.classification.task_classification import classify
 from starlette.concurrency import run_in_threadpool
 from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-from routers import files, users
-import requests, uvicorn, os, re
+from routers import users, documentos, traducir, test_braille
+import uvicorn
 
 load_dotenv()
+
+app = FastAPI()
+
+app.include_router(users.router)
+app.include_router(documentos.router)
+app.include_router(traducir.router)
+app.include_router(test_braille.router)
 
 silence_seconds = 0
 
@@ -113,16 +118,29 @@ html = """
 </html>
 """
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    except Exception as e:
-        print(f"Error: {e}")
-
-app = FastAPI(lifespan=lifespan)
-router = APIRouter(prefix='/api')
+async def handle_intent(intent: str, text: str, websocket: WebSocket):
+    if intent == "traducir":
+        braille = braille_translate(text)
+        await run_in_threadpool(send_braille_characters, braille)
+        await websocket.send_json({
+            "type": "traduccion",
+            "braille": braille
+        })
+    elif intent == "agregar_documento":
+        await websocket.send_json({
+            "type": "redirect",
+            "url": "/documentos/nuevo"
+        })
+    elif intent == "acceder_documento":
+        await websocket.send_json({
+            "type": "redirect",
+            "url": "/documentos"
+        })
+    elif intent == "buscar_catalogo":
+        await websocket.send_json({
+            "type": "redirect",
+            "url": "/catalogo"
+        })
 
 @app.get("/")
 async def root():
@@ -139,49 +157,21 @@ async def receive_command(websocket: WebSocket):
             if not final_text:
                 continue
 
-            print("Final:", final_text)
-
             nav_task = classify(final_text)
 
             if nav_task["intent"] == "fallback":
-                pass # return json asking to reprompt
-            elif nav_task["intent"] == "clarification":
-                pass # return json asking for clarification: quisiste decir possible intent?
-            elif nav_task["intent"] != None:
-                pass # work with intents
-
-                '''
-                # clasificar intencion con rasa
-                nav_task = await agent.parse_message(final_text)
-                prediction_intent = nav_task["intent"]
-                intent = prediction_intent["name"]
-                confidence = prediction_intent["confidence"]
-
-                # enviar texto final al frontend
                 await websocket.send_json({
-                    "type": "transcription",
-                    "text": final_text,
-                    "intent": intent,
-                    "confidence": confidence
+                    "type": "fallback",
+                    "message": "No entendí, ¿puedes repetirlo?"
                 })
-                    
-                if intent == "busqueda_web":
-                    result = await browse(final_text)
-                    await websocket.send_json({
-                    "type": "browse",
-                        "data": result
-                    })
+            elif nav_task["intent"] == "clarification":
+                await websocket.send_json({
+                    "type": "clarification",
+                    "message": f"¿Quisiste decir {nav_task['candidate']}?",
+                    "candidate": nav_task["candidate"]
+                })
+            else:
+                await handle_intent(nav_task["intent"], final_text, websocket)
 
-                else:
-                    await websocket.send_json({
-                        "type": "unknown",
-                        "intent": intent,
-                        "message": "Intent no implementado"
-                    })
-
-                '''
-                        
-        except WebSocketDisconnect:
-            print("Cliente desconectado")
-    else:
-        print("no hay modelito cargado")
+    except WebSocketDisconnect:
+        print("Cliente desconectado")
