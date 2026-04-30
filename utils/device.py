@@ -67,6 +67,7 @@ class BrailleDevice:
         logger.info(f"ESP8266 conectado — {cells} celda(s)")
 
         if self._lines:
+            await asyncio.sleep(1.0)
             await self._send_current_line()
 
     async def on_disconnect(self):
