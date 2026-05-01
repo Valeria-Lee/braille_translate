@@ -7,7 +7,7 @@ from utils.classification.semantic_classifier import classify
 from utils.device import braille_device
 from starlette.concurrency import run_in_threadpool
 from dotenv import load_dotenv
-from routers import traducir, test_braille
+from routers import traducir, test_braille, users, documentos, device
 import asyncio
 import logging
 
@@ -15,11 +15,12 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-#TODO: correr db, hacer pruebas locales, subida a server y definir rutas, pruebas locales.
+#TODO: definir rutas, pruebas locales.
 
 app = FastAPI()
 app.include_router(traducir.router)
 app.include_router(test_braille.router)
+app.include_router(users.router)
 
 class TextoRequest(BaseModel):
     text: str
