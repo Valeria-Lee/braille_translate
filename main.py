@@ -15,6 +15,8 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+#TODO: correr db, hacer pruebas locales, subida a server y definir rutas, pruebas locales.
+
 app = FastAPI()
 app.include_router(traducir.router)
 app.include_router(test_braille.router)
