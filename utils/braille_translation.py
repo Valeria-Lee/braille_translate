@@ -2,40 +2,42 @@ import nltk
 from nltk.tokenize import word_tokenize, sent_tokenize
 
 def braille_translate(text: str) -> list:
-    # [ oración [ palabra [ símbolo_braille, ... ], ... ], ... ]
     tokenized_text = _tokenize_words(text)
-    tokenized_paragraph = []                      
- 
-    for i, sentence in enumerate(tokenized_text):
+    tokenized_paragraph = []
+
+    for sentence in tokenized_text:
         is_in_number_sequence = False
-        sentence_result = []                     
- 
-        for j, word in enumerate(sentence):
+        sentence_result = []
+
+        for word in sentence:
             braille_word = []
- 
-            for k, char in enumerate(word):
+            k = 0
+
+            for char in word:
                 braille_segments, is_in_number_sequence = _translate_char(
                     char,
                     is_in_number_sequence
                 )
- 
+
                 if isinstance(braille_segments, list):
                     braille_word.extend(braille_segments)
                 else:
                     braille_word.append(braille_segments)
- 
+
                 if is_in_number_sequence and k < len(word) - 1:
                     if not word[k + 1].isdigit():
                         is_in_number_sequence = False
- 
+
+                k += 1
+
             is_in_number_sequence = False
             sentence_result.append(braille_word)
-            
+
         tokenized_paragraph.append(sentence_result)
- 
+
     return tokenized_paragraph
 
-def _tokenize_words(text: str):
+def _tokenize_words(text: str) -> list:
     nltk.download('punkt',     quiet=True)
     nltk.download('punkt_tab', quiet=True)
  
@@ -47,6 +49,7 @@ def _tokenize_words(text: str):
         tokenized_paragraph.append(words)
  
     return tokenized_paragraph
+
 def _translate_char(char: str, is_in_number_sequence: bool) -> tuple:
     mayus_char  = "⠠"
     number_char = "⠼"
@@ -89,51 +92,21 @@ def _translate_char(char: str, is_in_number_sequence: bool) -> tuple:
  
     if char.lower() in braille_characters:
         return braille_characters[char.lower()], False
- 
+
     return char, False
 
-def send_braille_characters(data):    
-    def process_word(word_list):
-        result = []
-        print(f"\nPalabra: {''.join(word_list)}")
-        for i, braille_char in enumerate(word_list):
-            positions = process_char(braille_char)
-            result.append(positions)
-            print(f"\nCaracter {i+1}: {braille_char} → Puntos: {positions}")
-            print_braille_cell(positions)
-        return result
-        
-    if not data:
-        return []
-    
-    if isinstance(data, str):
-        positions = process_char(data)
-        print_braille_cell(positions)
-        return positions
-    
-    if isinstance(data[0], str):
-        return process_word(data)
-    
-    if isinstance(data[0], list):
-        if data[0] and isinstance(data[0][0], list):
-            result = []
-            for i, sentence in enumerate(data):
-                print(f"Oración {i + 1}")
-                sentence_result = []
-                for word in sentence:
-                    word_result = process_word(word)
-                    sentence_result.append(word_result)
-                result.append(sentence_result)
-                print()
-            return result
-        else:
-            result = []
-            for word in data:
-                word_result = process_word(word)
-                result.append(word_result)
-            return result
-    
-    return []
+def send_braille_characters(braille_text: list) -> list:
+    result = []
+    for sentence in braille_text:
+        for word in sentence:
+            for char in word:
+                dots = convert_braille_characters_to_dots(char)
+                if dots is not None:
+                    result.append(dots)
+            result.append([])
+
+    result.pop()
+    return result
 
 def convert_braille_characters_to_dots(char: str) -> list | None:
     dot_positions = {
@@ -151,3 +124,5 @@ def convert_braille_characters_to_dots(char: str) -> list | None:
         "⠜": [3, 4, 5],   "⠼": [3, 4, 5, 6], "⠠": [6],
     }
     return dot_positions.get(char)
+
+print(send_braille_characters(braille_translate("hola")))
