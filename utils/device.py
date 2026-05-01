@@ -1,38 +1,9 @@
 import asyncio
 import logging
 from fastapi import WebSocket
+from utils.braille_translation import send_braille_characters
 
 logger = logging.getLogger(__name__)
-
-_DOT_MAP = {
-    "\u2801": [1], "\u2803": [1,2], "\u2809": [1,4], "\u2819": [1,4,5],
-    "\u2811": [1,5], "\u280b": [1,2,4], "\u281b": [1,2,4,5], "\u2813": [1,2,5],
-    "\u280a": [2,4], "\u281a": [2,4,5], "\u2805": [1,3], "\u2807": [1,2,3],
-    "\u280d": [1,3,4], "\u281d": [1,3,4,5], "\u2815": [1,3,5], "\u280f": [1,2,3,4],
-    "\u281f": [1,2,3,4,5], "\u2817": [1,2,3,5], "\u280e": [2,3,4], "\u281e": [2,3,4,5],
-    "\u2825": [1,3,6], "\u2827": [1,2,3,6], "\u283a": [2,4,5,6], "\u282d": [1,3,4,6],
-    "\u283d": [1,3,4,5,6], "\u2835": [1,3,5,6], "\u2837": [1,2,3,5,6], "\u282e": [2,3,4,6],
-    "\u280c": [3,4], "\u282c": [2,4,6], "\u283e": [1,2,3,5,6], "\u2833": [1,2,5,6],
-    "\u2802": [2], "\u2806": [2,3], "\u2812": [2,5], "\u2832": [2,5,6],
-    "\u2826": [2,3,6], "\u2816": [2,3,5], "\u2804": [3], "\u2836": [2,3,5,6],
-    "\u2824": [3,6], "\u2810": [5,6], "\u2822": [2,6], "\u2823": [1,2,6],
-    "\u281c": [3,4,5], "\u283c": [3,4,5,6], "\u2820": [6],
-}
-
-
-def _flatten_to_dots(braille_data: list) -> list:
-    """Aplana estructura braille a lista de listas de puntos."""
-    result = []
-    for sentence in braille_data:
-        for word_idx, word in enumerate(sentence):
-            for char in word:
-                dots = _DOT_MAP.get(char)
-                if dots is not None:
-                    result.append(dots)
-            if word_idx < len(sentence) - 1:
-                result.append([])
-    return result
-
 
 class BrailleDevice:
     def __init__(self):
@@ -64,7 +35,7 @@ class BrailleDevice:
         self._ws = websocket
         self._cells = cells
         self._done_event.clear()
-        logger.info(f"ESP8266 conectado — {cells} celda(s)")
+        logger.info(f"ESP8266 conectado: {cells} celda(s)")
 
         if self._lines:
             await asyncio.sleep(1.0)
@@ -96,7 +67,7 @@ class BrailleDevice:
             await self.prev_line()
 
     async def load_text(self, braille_data: list) -> bool:
-        chars_as_dots = _flatten_to_dots(braille_data)
+        chars_as_dots = send_braille_characters(braille_data)
         if not chars_as_dots:
             return False
 

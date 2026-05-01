@@ -105,7 +105,9 @@ def send_braille_characters(braille_text: list) -> list:
                     result.append(dots)
             result.append([])
 
-    result.pop()
+    if len(result) > 0:
+        result.pop()
+    
     return result
 
 def convert_braille_characters_to_dots(char: str) -> list | None:
@@ -124,5 +126,3 @@ def convert_braille_characters_to_dots(char: str) -> list | None:
         "⠜": [3, 4, 5],   "⠼": [3, 4, 5, 6], "⠠": [6],
     }
     return dot_positions.get(char)
-
-print(send_braille_characters(braille_translate("hola")))
