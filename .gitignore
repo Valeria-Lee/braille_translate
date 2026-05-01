@@ -5,3 +5,4 @@ utils/model/
 /py311_env
 .rasa
 usr/bin/.oh-my-zsh
+.pytest_cache
