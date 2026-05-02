@@ -17,6 +17,7 @@ router = APIRouter(prefix="/documentos", tags=["documentos"])
 
 STORAGE_PATH = os.getenv("STORAGE_PATH")
 ALLOWED_TYPES = {"pdf", "epub", "docx"}
+MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 class ProgressUpdate(BaseModel):
     progress: float # 0.0 - 1.0
@@ -63,13 +64,17 @@ async def nuevo_documento(
     if file_ext not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail=f"Tipo no permitido. Usa: {ALLOWED_TYPES}")
 
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="Archivo muy grande, máximo 50MB")
+    
     # guardar en disco
     user_storage = f"{STORAGE_PATH}/{current_user.id}"
     os.makedirs(user_storage, exist_ok=True)
     file_path = f"{user_storage}/{file.filename}"
 
     with open(file_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+        f.write(contents)
 
     doc = await create_document(db, current_user.id, title, file_path, file_ext, author)
     return {"id": doc.id, "title": doc.title, "file_type": doc.file_type}
