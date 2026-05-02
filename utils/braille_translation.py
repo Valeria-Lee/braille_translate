@@ -95,7 +95,7 @@ def _translate_char(char: str, is_in_number_sequence: bool) -> tuple:
 
     return char, False
 
-def _send_braille_characters(braille_text: list) -> list:
+def send_braille_characters(braille_text: list) -> list:
     result = []
     for sentence in braille_text:
         for word in sentence:
@@ -110,7 +110,7 @@ def _send_braille_characters(braille_text: list) -> list:
     
     return result
 
-def _convert_braille_characters_to_dots(char: str) -> list | None:
+def convert_braille_characters_to_dots(char: str) -> list | None:
     dot_positions = {
         "⠁": [1],         "⠃": [1, 2],       "⠉": [1, 4],       "⠙": [1, 4, 5],
         "⠑": [1, 5],      "⠋": [1, 2, 4],    "⠛": [1, 2, 4, 5], "⠓": [1, 2, 5],
