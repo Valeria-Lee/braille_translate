@@ -15,7 +15,7 @@ import os, shutil
 
 router = APIRouter(prefix="/documentos", tags=["documentos"])
 
-STORAGE_PATH = "storage/documents"
+STORAGE_PATH = os.getenv("STORAGE_PATH")
 ALLOWED_TYPES = {"pdf", "epub", "docx"}
 
 class ProgressUpdate(BaseModel):
