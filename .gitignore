@@ -6,3 +6,4 @@ utils/model/
 .rasa
 usr/bin/.oh-my-zsh
 .pytest_cache
+storage/
