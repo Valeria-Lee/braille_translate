@@ -40,6 +40,8 @@ class BrailleDevice:
     async def on_disconnect(self):
         self._ws = None
         self._cells = 0
+        self._lines = []
+        self._current_line = 0 
         self._done_event.set()
         logger.warning("ESP8266 desconectado")
 
