@@ -7,7 +7,7 @@ from utils.classification.semantic_classifier import classify
 from utils.device import braille_device
 from starlette.concurrency import run_in_threadpool
 from dotenv import load_dotenv
-from routers import traducir, test_braille, users #, documents, device
+from routers import traducir, test_braille, users, documents #, device
 import asyncio
 import logging
 
@@ -21,6 +21,7 @@ app = FastAPI()
 app.include_router(traducir.router)
 app.include_router(test_braille.router)
 app.include_router(users.router)
+app.include_router(documents.router)
 
 class TextoRequest(BaseModel):
     text: str
