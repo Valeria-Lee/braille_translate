@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from utils.braille_translation import braille_translate
-from device import braille_device
+from utils.device import braille_device
 
 router = APIRouter(prefix="/traducir", tags=["traducir"])
 
