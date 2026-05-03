@@ -9,6 +9,9 @@ from repositories.intent_log_repository import create_intent_log
 from starlette.concurrency import run_in_threadpool
 from dotenv import load_dotenv
 from routers import traducir, test_braille, users, documents, device, logs
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import asyncio
 import logging
 
@@ -16,9 +19,15 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-#TODO: do this routes: device and the logs
+#TODO: testing routes, setup device routes or sm, build the catalogue, rate limiter for catalogue
+
+limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI()
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.include_router(traducir.router)
 app.include_router(test_braille.router)
 app.include_router(users.router)
