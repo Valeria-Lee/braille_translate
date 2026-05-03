@@ -1,11 +1,14 @@
-from auth.dependencies import get_current_user
-from database.models.user import User
-from repositories.device_repository import get_device_by_user, create_device, get_device_by_token
-import secrets
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from database.connection import get_db
+from database.models.user import User
+from auth.dependencies import get_current_user
+from repositories.device_repository import get_device_by_user, create_device, get_device_by_token
+import secrets
+from datetime import datetime, timedelta
+
+router = APIRouter(prefix="/device", tags=["device"])
 
 class DeviceRegisterRequest(BaseModel):
     device_token: str
