@@ -8,7 +8,7 @@ from utils.device import braille_device
 from repositories.intent_log_repository import create_intent_log
 from starlette.concurrency import run_in_threadpool
 from dotenv import load_dotenv
-from routers import traducir, test_braille, users, documents, device, logs, stt
+from routers import traducir, test_braille, users, documents, device, logs, stt, learn
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -19,7 +19,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-#TODO: setup device routes for esp, learning platform routes, build the catalogue, rate limiter for catalogue
+#TODO: learning platform routes, build the catalogue, rate limiter for catalogue
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -35,6 +35,7 @@ app.include_router(documents.router)
 app.include_router(logs.router)
 app.include_router(device.router)
 app.include_router(stt.router)
+app.include_router(learn.router)
 
 class TextoRequest(BaseModel):
     text: str
