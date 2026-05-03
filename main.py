@@ -5,9 +5,10 @@ from utils.audio import new_recognizer, transcribe_chunk
 from utils.braille_translation import braille_translate
 from utils.classification.semantic_classifier import classify
 from utils.device import braille_device
+from repositories.intent_log_repository import create_intent_log
 from starlette.concurrency import run_in_threadpool
 from dotenv import load_dotenv
-from routers import traducir, test_braille, users, documents #, device
+from routers import traducir, test_braille, users, documents, device, logs
 import asyncio
 import logging
 
@@ -15,7 +16,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-#TODO: generate my secret auth key, test it out, do this routes: documentos, device and the logs
+#TODO: do this routes: device and the logs
 
 app = FastAPI()
 app.include_router(traducir.router)
@@ -141,6 +142,8 @@ async def commands_endpoint(websocket: WebSocket):
             elif result["type"] == "transcription" and result["text"]:
                 final_text = result["text"]
                 nav_task = classify(final_text)
+
+                await create_intent_log(db, current_user.id, final_text, nav_task["intent"], nav_task["confidence"])
 
                 if nav_task["intent"] == "fallback":
                     await websocket.send_json({
