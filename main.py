@@ -19,7 +19,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-#TODO: setup device routes or sm, build the catalogue, rate limiter for catalogue, mover las rutas de device de main a device
+#TODO: setup device routes or sm, build the catalogue, rate limiter for catalogue
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -33,6 +33,7 @@ app.include_router(test_braille.router)
 app.include_router(users.router)
 app.include_router(documents.router)
 app.include_router(logs.router)
+app.include_router(device.router)
 
 class TextoRequest(BaseModel):
     text: str
