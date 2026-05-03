@@ -11,7 +11,7 @@ class BrailleDevice:
         self._cells: int = 0
         self._done_event = asyncio.Event()
         self._lock = asyncio.Lock()
-        self._pausa_chars: int = 500
+        self._pausa_chars: int = 200
         self._lines: list[list] = []
         self._current_line: int = 0
 
@@ -39,7 +39,7 @@ class BrailleDevice:
 
         await websocket.send_json({
             "type": "config",
-            "pausa_chars": 500
+            "pausa_chars": self._pausa_chars 
         })
 
         if self._lines:

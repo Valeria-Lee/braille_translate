@@ -8,8 +8,11 @@ from repositories.device_repository import get_device_by_user, create_device, ge
 from utils.device import braille_device
 import secrets
 from datetime import datetime, timedelta
+import asyncio
+import logging
 
 router = APIRouter(prefix="/device", tags=["device"])
+logger = logging.getLogger(__name__)
 pending_pairs: dict = {}
 
 class DeviceRegisterRequest(BaseModel):
@@ -26,6 +29,7 @@ async def device_status(
     current_user: User = Depends(get_current_user)
 ):
     device = await get_device_by_user(db, current_user.id)
+
     cells = braille_device.cells if braille_device.is_connected else (device.cells if device else 0)
     
     return {
@@ -66,18 +70,14 @@ async def prev_line(
 
 @router.websocket("/ws")
 async def device_endpoint(websocket: WebSocket):
-    await websocket.accept(
-        {
-            "type": "config",
-            "pausa_chars": 500
-        }
-    )
+    await websocket.accept()
     try:
         hello = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
-        if hello.get("type") != "hello":
+        if hello.get("type") != "hola":
             await websocket.close()
             return
         cells = hello.get("cells", 1)
+        await braille_device.on_connect(websocket, cells)
         await braille_device.on_connect(websocket, cells)
         while True:
             msg = await websocket.receive_json()
@@ -121,7 +121,7 @@ async def pair_confirm(
     if existing:
         raise HTTPException(status_code=400, detail="Ya tienes un dispositivo registrado")
 
-    device = await create_device(db, current_user.id, req.device_id)
+    device = await create_device(db, current_user.id, req.device_id, req.cells)
     del pending_pairs[req.device_id]
 
     return {"ok": True, "device_id": req.device_id, "cells": device.cells}
