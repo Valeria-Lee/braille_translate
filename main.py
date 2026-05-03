@@ -6,6 +6,7 @@ from utils.braille_translation import braille_translate
 from utils.classification.semantic_classifier import classify
 from utils.device import braille_device
 from repositories.intent_log_repository import create_intent_log
+from database.connection import AsyncSessionLocal
 from starlette.concurrency import run_in_threadpool
 from dotenv import load_dotenv
 from routers import traducir, test_braille, users, documents, device, logs, stt, learn
@@ -19,12 +20,9 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-#TODO: learning platform routes, build the catalogue, rate limiter for catalogue
-
 limiter = Limiter(key_func=get_remote_address)
 
 app = FastAPI()
-
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -39,7 +37,7 @@ app.include_router(learn.router)
 
 class TextoRequest(BaseModel):
     text: str
-    char_qty: int = 1 
+    char_qty: int = 1
 
 @app.get("/")
 async def root():
@@ -51,7 +49,6 @@ async def traducir_texto(req: TextoRequest):
         return {"error": "Texto vacío"}
 
     braille_data = braille_translate(req.text)
-
     ok = await braille_device.load_text(braille_data)
 
     return {
@@ -66,11 +63,11 @@ async def handle_intent(intent: str, text: str, websocket: WebSocket):
         braille_data = braille_translate(text)
         ok = await braille_device.load_text(braille_data)
         await websocket.send_json({
-            "type":         "traduccion",
-            "text":         text,
-            "device_ok":    ok,
-            "total_lines":  braille_device.total_lines,
-            "connected":    braille_device.is_connected,
+            "type":        "traduccion",
+            "text":        text,
+            "device_ok":   ok,
+            "total_lines": braille_device.total_lines,
+            "connected":   braille_device.is_connected,
         })
     elif intent == "agregar_documento":
         await websocket.send_json({"type": "redirect", "url": "/documentos/nuevo"})
@@ -78,7 +75,6 @@ async def handle_intent(intent: str, text: str, websocket: WebSocket):
         await websocket.send_json({"type": "redirect", "url": "/documentos"})
     elif intent == "buscar_catalogo":
         await websocket.send_json({"type": "redirect", "url": "/catalogo"})
-
 
 @app.websocket("/commands")
 async def commands_endpoint(websocket: WebSocket):
@@ -98,7 +94,13 @@ async def commands_endpoint(websocket: WebSocket):
                 final_text = result["text"]
                 nav_task = classify(final_text)
 
-                await create_intent_log(db, current_user.id, final_text, nav_task["intent"], nav_task["confidence"])
+                # log intent for dataset
+                async with AsyncSessionLocal() as db:
+                    await create_intent_log(
+                        db, 1, final_text,
+                        nav_task["intent"],
+                        nav_task["confidence"]
+                    )
 
                 if nav_task["intent"] == "fallback":
                     await websocket.send_json({

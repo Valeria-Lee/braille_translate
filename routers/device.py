@@ -7,6 +7,7 @@ from auth.dependencies import get_current_user
 from repositories.device_repository import get_device_by_user, create_device, get_device_by_token
 from utils.device import braille_device
 import secrets
+import json
 from datetime import datetime, timedelta
 import asyncio
 import logging
@@ -29,9 +30,7 @@ async def device_status(
     current_user: User = Depends(get_current_user)
 ):
     device = await get_device_by_user(db, current_user.id)
-
     cells = braille_device.cells if braille_device.is_connected else (device.cells if device else 0)
-    
     return {
         "connected":    braille_device.is_connected,
         "cells":        cells,
@@ -72,21 +71,32 @@ async def prev_line(
 async def device_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
-        hello = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
-        if hello.get("type") != "hola":
+        logger.info("Esperando hello del ESP...")
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+        logger.info(f"Recibido raw: {raw}")
+        hello = json.loads(raw)
+        logger.info(f"Hello parseado: {hello}")
+
+        if hello.get("type") != "hello":
+            logger.warning(f"Tipo incorrecto: {hello.get('type')}")
             await websocket.close()
             return
+
         cells = hello.get("cells", 1)
         await braille_device.on_connect(websocket, cells)
-        await braille_device.on_connect(websocket, cells)
+
         while True:
             msg = await websocket.receive_json()
             logger.info(f"ESP mensaje: {msg}")
             if msg.get("type") == "ping":
                 continue
             await braille_device.on_message(msg)
+
+    except asyncio.TimeoutError:
+        logger.error("Timeout esperando hello")
+        await websocket.close()
     except WebSocketDisconnect:
-        logger.warning("ESP desconectado por WebSocketDisconnect")
+        logger.warning("ESP desconectado")
         await braille_device.on_disconnect()
     except Exception as e:
         logger.error(f"Error en /device: {e}")
@@ -99,8 +109,17 @@ async def pair_request(device_id: str):
         "code": code,
         "expires": datetime.now() + timedelta(minutes=5)
     }
-    # no auth needed — ESP8266 calls this
     return {"ok": True, "expires_in": 300}
+
+@router.get("/pair/pending")
+async def get_pending_device():
+    for device_id, data in pending_pairs.items():
+        if datetime.now() < data["expires"]:
+            return {
+                "device_id": device_id,
+                "expires_in": (data["expires"] - datetime.now()).seconds
+            }
+    return {"device_id": None}
 
 @router.post("/pair/confirm")
 async def pair_confirm(
@@ -135,11 +154,10 @@ async def update_cells(
     device = await get_device_by_user(db, current_user.id)
     if not device:
         raise HTTPException(status_code=404, detail="No tienes un dispositivo registrado")
-    
+
     device.cells = cells
     await db.commit()
     await db.refresh(device)
-
     braille_device._cells = cells
 
     return {"ok": True, "cells": device.cells}
