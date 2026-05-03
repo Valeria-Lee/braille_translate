@@ -19,7 +19,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-#TODO: setup device routes for esp, , build the catalogue, rate limiter for catalogue, learning platform routes
+#TODO: setup device routes for esp, learning platform routes, build the catalogue, rate limiter for catalogue
 
 limiter = Limiter(key_func=get_remote_address)
 

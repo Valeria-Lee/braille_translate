@@ -11,7 +11,7 @@ class BrailleDevice:
         self._cells: int = 0
         self._done_event = asyncio.Event()
         self._lock = asyncio.Lock()
-
+        self._pausa_chars: int = 500
         self._lines: list[list] = []
         self._current_line: int = 0
 
@@ -36,6 +36,15 @@ class BrailleDevice:
         self._cells = cells
         self._done_event.clear()
         logger.info(f"ESP8266 conectado: {cells} celda(s)")
+
+        await websocket.send_json({
+            "type": "config",
+            "pausa_chars": 500
+        })
+
+        if self._lines:
+            await asyncio.sleep(1.0)
+            await self._send_current_line()
 
     async def on_disconnect(self):
         self._ws = None

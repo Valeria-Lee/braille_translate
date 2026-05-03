@@ -66,7 +66,12 @@ async def prev_line(
 
 @router.websocket("/ws")
 async def device_endpoint(websocket: WebSocket):
-    await websocket.accept()
+    await websocket.accept(
+        {
+            "type": "config",
+            "pausa_chars": 500
+        }
+    )
     try:
         hello = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
         if hello.get("type") != "hello":
@@ -76,7 +81,7 @@ async def device_endpoint(websocket: WebSocket):
         await braille_device.on_connect(websocket, cells)
         while True:
             msg = await websocket.receive_json()
-            logger.info(f"ESP mensaje: {msg}")  # ← agregar
+            logger.info(f"ESP mensaje: {msg}")
             if msg.get("type") == "ping":
                 continue
             await braille_device.on_message(msg)
@@ -138,3 +143,16 @@ async def update_cells(
     braille_device._cells = cells
 
     return {"ok": True, "cells": device.cells}
+
+@router.patch("/config")
+async def update_config(
+    pausa_chars: int,
+    current_user: User = Depends(get_current_user)
+):
+    braille_device._pausa_chars = pausa_chars
+    if braille_device.is_connected:
+        await braille_device._ws.send_json({
+            "type": "config",
+            "pausa_chars": pausa_chars
+        })
+    return {"ok": True, "pausa_chars": pausa_chars}
