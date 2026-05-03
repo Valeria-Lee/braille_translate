@@ -5,18 +5,25 @@ from database.connection import get_db
 from database.models.user import User
 from auth.dependencies import get_current_user
 from repositories.device_repository import get_device_by_user, create_device, get_device_by_token
+from utils.device import braille_device
 import secrets
 from datetime import datetime, timedelta
 
 router = APIRouter(prefix="/device", tags=["device"])
+pending_pairs: dict = {}
 
 class DeviceRegisterRequest(BaseModel):
     device_token: str
     cells: int = 1
 
+class PairConfirmRequest(BaseModel):
+    device_id: str
+    cells: int = 1
 
-@app.get("/status")
-async def device_status():
+@router.get("/status")
+async def device_status(
+    current_user: User = Depends(get_current_user)
+):
     return {
         "connected":    braille_device.is_connected,
         "cells":        braille_device.cells,
@@ -24,13 +31,17 @@ async def device_status():
         "total_lines":  braille_device.total_lines,
     }
 
-@app.post("/off")
-async def device_off():
+@router.post("/off")
+async def device_off(
+    current_user: User = Depends(get_current_user)
+):
     ok = await braille_device.emergency_off()
     return {"ok": ok}
 
-@app.post("/next")
-async def next_line():
+@router.post("/next")
+async def next_line(
+    current_user: User = Depends(get_current_user)
+):
     ok = await braille_device.next_line()
     return {
         "ok":           ok,
@@ -38,8 +49,10 @@ async def next_line():
         "total_lines":  braille_device.total_lines,
     }
 
-@app.post("/prev")
-async def prev_line():
+@router.post("/prev")
+async def prev_line(
+    current_user: User = Depends(get_current_user)
+):
     ok = await braille_device.prev_line()
     return {
         "ok":           ok,
@@ -47,7 +60,7 @@ async def prev_line():
         "total_lines":  braille_device.total_lines,
     }
 
-@app.websocket("/device")
+@router.websocket("/ws")
 async def device_endpoint(websocket: WebSocket):
     await websocket.accept()
     try:
@@ -69,25 +82,6 @@ async def device_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"Error en /device: {e}")
         await braille_device.on_disconnect()
-
-@router.post("/register")
-async def register_device(
-    req: DeviceRegisterRequest,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    # check user doesn't already have a device
-    existing = await get_device_by_user(db, current_user.id)
-    if existing:
-        raise HTTPException(status_code=400, detail="Ya tienes un dispositivo registrado")
-
-    # check token isn't taken by another user
-    token_taken = await get_device_by_token(db, req.device_token)
-    if token_taken:
-        raise HTTPException(status_code=400, detail="Token ya registrado")
-
-    device = await create_device(db, current_user.id, req.device_token, req.cells)
-    return {"id": device.id, "device_token": device.device_token, "cells": device.cells}
 
 @router.post("/pair/request")
 async def pair_request(device_id: str):
@@ -122,3 +116,19 @@ async def pair_confirm(
     del pending_pairs[req.device_id]
 
     return {"ok": True, "device_id": req.device_id, "cells": device.cells}
+
+@router.patch("/cells")
+async def update_cells(
+    cells: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    device = await get_device_by_user(db, current_user.id)
+    if not device:
+        raise HTTPException(status_code=404, detail="No tienes un dispositivo registrado")
+    
+    device.cells = cells
+    await db.commit()
+    await db.refresh(device)
+
+    return {"ok": True, "cells": device.cells}
