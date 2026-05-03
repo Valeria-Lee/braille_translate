@@ -22,11 +22,15 @@ class PairConfirmRequest(BaseModel):
 
 @router.get("/status")
 async def device_status(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    device = await get_device_by_user(db, current_user.id)
+    cells = braille_device.cells if braille_device.is_connected else (device.cells if device else 0)
+    
     return {
         "connected":    braille_device.is_connected,
-        "cells":        braille_device.cells,
+        "cells":        cells,
         "current_line": braille_device.current_line,
         "total_lines":  braille_device.total_lines,
     }
@@ -130,5 +134,7 @@ async def update_cells(
     device.cells = cells
     await db.commit()
     await db.refresh(device)
+
+    braille_device._cells = cells
 
     return {"ok": True, "cells": device.cells}
