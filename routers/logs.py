@@ -4,7 +4,7 @@ from database.connection import get_db
 from database.models.user import User
 from auth.dependencies import get_current_user
 from repositories.braille_log_repository import get_braille_logs_by_user, create_braille_log
-from device import braille_device
+from utils.device import braille_device
 from utils.braille_translation import braille_translate, send_braille_characters
 
 router = APIRouter(prefix="/logs", tags=["logs"])
