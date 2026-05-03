@@ -19,7 +19,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-#TODO: testing routes, setup device routes or sm, build the catalogue, rate limiter for catalogue
+#TODO: setup device routes or sm, build the catalogue, rate limiter for catalogue, mover las rutas de device de main a device
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -42,21 +42,6 @@ class TextoRequest(BaseModel):
 async def root():
     return {"status": "BrailLearn API running"}
 
-@app.get("/device/status")
-async def device_status():
-    return {
-        "connected":    braille_device.is_connected,
-        "cells":        braille_device.cells,
-        "current_line": braille_device.current_line,
-        "total_lines":  braille_device.total_lines,
-    }
-
-@app.post("/device/off")
-async def device_off():
-    ok = await braille_device.emergency_off()
-    return {"ok": ok}
-
-
 @app.post("/traducir")
 async def traducir_texto(req: TextoRequest):
     if not req.text.strip():
@@ -72,49 +57,6 @@ async def traducir_texto(req: TextoRequest):
         "current_line": braille_device.current_line,
         "connected":    braille_device.is_connected,
     }
-
-
-@app.post("/device/next")
-async def next_line():
-    ok = await braille_device.next_line()
-    return {
-        "ok":           ok,
-        "current_line": braille_device.current_line,
-        "total_lines":  braille_device.total_lines,
-    }
-
-
-@app.post("/device/prev")
-async def prev_line():
-    ok = await braille_device.prev_line()
-    return {
-        "ok":           ok,
-        "current_line": braille_device.current_line,
-        "total_lines":  braille_device.total_lines,
-    }
-
-@app.websocket("/device")
-async def device_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    try:
-        hello = await asyncio.wait_for(websocket.receive_json(), timeout=30.0)
-        if hello.get("type") != "hello":
-            await websocket.close()
-            return
-        cells = hello.get("cells", 1)
-        await braille_device.on_connect(websocket, cells)
-        while True:
-            msg = await websocket.receive_json()
-            logger.info(f"ESP mensaje: {msg}")  # ← agregar
-            if msg.get("type") == "ping":
-                continue
-            await braille_device.on_message(msg)
-    except WebSocketDisconnect:
-        logger.warning("ESP desconectado por WebSocketDisconnect")
-        await braille_device.on_disconnect()
-    except Exception as e:
-        logger.error(f"Error en /device: {e}")
-        await braille_device.on_disconnect()
 
 async def handle_intent(intent: str, text: str, websocket: WebSocket):
     if intent == "traducir":
