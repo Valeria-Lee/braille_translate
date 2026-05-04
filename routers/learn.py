@@ -133,7 +133,7 @@ async def complete_lesson(
         correct = sum(
             1 for q in lesson.questions
             if respuesta_correcta(
-                str(req.answers.get(q.id, "")),
+                str(req.answers.get(str(q.id), "")),
                 q.correct_answer
             )
         )
