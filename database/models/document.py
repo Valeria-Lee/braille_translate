@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text, Float, DateTime, ForeignKey, func
+from sqlalchemy import String, Text, Float, DateTime, ForeignKey, func, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.connection import Base
 
@@ -14,6 +14,8 @@ class Document(Base):
     reading_progress: Mapped[float] = mapped_column(Float, default=0.0)
     last_read_at:     Mapped[DateTime] = mapped_column(DateTime, nullable=True)
     added_at:         Mapped[DateTime] = mapped_column(DateTime, server_default=func.now())
+    is_public:        Mapped[bool]  = mapped_column(Boolean, default=False)
+    category:         Mapped[str]   = mapped_column(String(100), nullable=True)
 
     user:         Mapped["User"]          = relationship("User", back_populates="documents")
     braille_logs: Mapped[list["BrailleLog"]] = relationship("BrailleLog", back_populates="document")

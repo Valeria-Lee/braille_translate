@@ -112,3 +112,25 @@ async def delete_documento(
 
     await delete_document(db, doc)
     return {"ok": True}
+
+class PublishRequest(BaseModel):
+    is_public: bool
+    category: str | None = None
+
+@router.patch("/{document_id}/publish")
+async def publish_documento(
+    document_id: int,
+    req: PublishRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    doc = await get_document_by_id(db, document_id, current_user.id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    doc.is_public = req.is_public
+    doc.category = req.category
+    await db.commit()
+    await db.refresh(doc)
+
+    return {"ok": True, "is_public": doc.is_public, "category": doc.category}

@@ -9,7 +9,7 @@ from repositories.intent_log_repository import create_intent_log
 from database.connection import AsyncSessionLocal
 from starlette.concurrency import run_in_threadpool
 from dotenv import load_dotenv
-from routers import traducir, test_braille, users, documents, device, logs, stt, learn
+from routers import traducir, test_braille, users, documents, device, logs, stt, learn, catalog
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -34,6 +34,7 @@ app.include_router(logs.router)
 app.include_router(device.router)
 app.include_router(stt.router)
 app.include_router(learn.router)
+app.include_router(catalog.router)
 
 class TextoRequest(BaseModel):
     text: str
