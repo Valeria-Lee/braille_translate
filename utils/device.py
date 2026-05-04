@@ -143,7 +143,7 @@ class BrailleDevice:
             logger.error(f"Error enviando línea {idx}: {e}")
             return False
 
-        timeout = len(line) * 6 * 0.07 + len(line) * 0.8 + 5
+        timeout = len(line) * (0.050 + 0.020 + self._pausa_chars/1000 + 0.100) * 6 + 10
         try:
             await asyncio.wait_for(self._done_event.wait(), timeout=timeout)
             return True
