@@ -32,7 +32,6 @@ async def save_progress(
     lesson_id: int,
     score: float
 ) -> UserLessonProgress:
-    # if progress already exists
     result = await db.execute(
         select(UserLessonProgress).where(
             UserLessonProgress.user_id == user_id,
@@ -42,9 +41,10 @@ async def save_progress(
     progress = result.scalar_one_or_none()
 
     if progress:
+        if score > progress.score:
+            progress.score = score
+            progress.completed_at = datetime.now()
         progress.completed = True
-        progress.score = score
-        progress.completed_at = datetime.now()
     else:
         progress = UserLessonProgress(
             user_id=user_id,
@@ -108,3 +108,45 @@ async def create_question(
     await db.commit()
     await db.refresh(q)
     return q
+
+async def update_block_progress(
+    db: AsyncSession,
+    user_id: int,
+    lesson_id: int,
+    block_id: int
+) -> UserLessonProgress:
+    result = await db.execute(
+        select(UserLessonProgress).where(
+            UserLessonProgress.user_id == user_id,
+            UserLessonProgress.lesson_id == lesson_id
+        )
+    )
+    progress = result.scalar_one_or_none()
+
+    if progress:
+        progress.last_block_id = block_id
+    else:
+        progress = UserLessonProgress(
+            user_id=user_id,
+            lesson_id=lesson_id,
+            completed=False,
+            last_block_id=block_id
+        )
+        db.add(progress)
+
+    await db.commit()
+    await db.refresh(progress)
+    return progress
+
+async def get_lesson_progress(
+    db: AsyncSession,
+    user_id: int,
+    lesson_id: int
+) -> UserLessonProgress | None:
+    result = await db.execute(
+        select(UserLessonProgress).where(
+            UserLessonProgress.user_id == user_id,
+            UserLessonProgress.lesson_id == lesson_id
+        )
+    )
+    return result.scalar_one_or_none()

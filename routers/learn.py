@@ -125,7 +125,6 @@ async def complete_lesson(
     if not lesson:
         raise HTTPException(status_code=404, detail="Lección no encontrada")
 
-    # calculate score
     total = len(lesson.questions)
     if total == 0:
         score = 1.0
@@ -144,9 +143,9 @@ async def complete_lesson(
     return {
         "ok": True,
         "score": score,
+        "best_score": progress.score,
         "completed_at": progress.completed_at
     }
-
 
 class LessonCreate(BaseModel):
     title: str
@@ -172,7 +171,7 @@ async def admin_create_lesson(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # TODO: add admin role check when roles are implemented
+    # TODO: admin role check when roles are implemented
     lesson = await create_lesson(db, req.title, req.description, req.order)
     return {"id": lesson.id, "title": lesson.title}
 
@@ -200,3 +199,43 @@ async def admin_create_question(
         req.question, req.options, req.correct_answer
     )
     return {"id": question.id, "order": question.order}
+
+from repositories.lesson_repository import update_block_progress, get_lesson_progress
+
+class BlockProgressRequest(BaseModel):
+    block_id: int
+
+# resume position
+@router.get("/lessons/{lesson_id}/progress")
+async def get_progress(
+    lesson_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    progress = await get_lesson_progress(db, current_user.id, lesson_id)
+    if not progress:
+        return {
+            "last_block_id": None,
+            "completed": False,
+            "score": None
+        }
+    return {
+        "last_block_id": progress.last_block_id,
+        "completed": progress.completed,
+        "score": progress.score
+    }
+
+@router.post("/lessons/{lesson_id}/progress")
+async def save_block_progress(
+    lesson_id: int,
+    req: BlockProgressRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    progress = await update_block_progress(
+        db, current_user.id, lesson_id, req.block_id
+    )
+    return {
+        "ok": True,
+        "last_block_id": progress.last_block_id
+    }

@@ -51,6 +51,7 @@ class UserLessonProgress(Base):
     lesson_id:    Mapped[int]   = mapped_column(ForeignKey("lessons.id"), nullable=False)
     completed:    Mapped[bool]  = mapped_column(Boolean, default=False)
     score:        Mapped[float] = mapped_column(Float, nullable=True)
+    last_block_id: Mapped[int]  = mapped_column(Integer, nullable=True)
     completed_at: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
 
     user:   Mapped["User"]   = relationship("User")
