@@ -93,26 +93,28 @@ class BrailleDevice:
         return True
 
     async def next_line(self) -> bool:
-        if not self._lines:
-            return False
-        if self._current_line < len(self._lines) - 1:
-            self._current_line += 1
-            logger.info(f"Línea → {self._current_line}/{len(self._lines)-1}")
-            return await self._send_current_line()
-        else:
-            logger.info("Ya estás en la última línea")
-            return False
+        async with self._lock:
+            if not self._lines:
+                return False
+            if self._current_line < len(self._lines) - 1:
+                self._current_line += 1
+                logger.info(f"Línea → {self._current_line}/{len(self._lines)-1}")
+                return await self._send_current_line()
+            else:
+                logger.info("Ya estás en la última línea")
+                return False
 
     async def prev_line(self) -> bool:
-        if not self._lines:
-            return False
-        if self._current_line > 0:
-            self._current_line -= 1
-            logger.info(f"Línea ← {self._current_line}/{len(self._lines)-1}")
-            return await self._send_current_line()
-        else:
-            logger.info("Ya estás en la primera línea")
-            return False
+        async with self._lock:
+            if not self._lines:
+                return False
+            if self._current_line > 0:
+                self._current_line -= 1
+                logger.info(f"Línea ← {self._current_line}/{len(self._lines)-1}")
+                return await self._send_current_line()
+            else:
+                logger.info("Ya estás en la primera línea")
+                return False
 
     async def emergency_off(self) -> bool:
         if not self.is_connected:
