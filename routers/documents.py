@@ -12,6 +12,13 @@ from repositories.document_repository import (
     delete_document
 )
 import os, shutil
+import fitz
+from docx import Document as DocxDocument
+import ebooklib
+from ebooklib import epub
+from bs4 import BeautifulSoup
+from utils.braille_translation import braille_translate, send_braille_characters
+from utils.device import braille_device
 
 router = APIRouter(prefix="/documentos", tags=["documentos"])
 
@@ -106,7 +113,6 @@ async def delete_documento(
     if not doc:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
 
-    # eliminar de disco
     if os.path.exists(doc.file_path):
         os.remove(doc.file_path)
 
@@ -134,3 +140,51 @@ async def publish_documento(
     await db.refresh(doc)
 
     return {"ok": True, "is_public": doc.is_public, "category": doc.category}
+
+def extract_text(file_path: str, file_type: str) -> str:
+    match file_type:
+        case "pdf":
+            doc = fitz.open(file_path)
+            return " ".join(page.get_text() for page in doc)
+        case "docx":
+            doc = DocxDocument(file_path)
+            return " ".join(p.text for p in doc.paragraphs if p.text.strip())
+        case "epub":
+            book = epub.read_epub(file_path)
+            text = []
+            for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
+                soup = BeautifulSoup(item.get_content(), 'html.parser')
+                text.append(soup.get_text())
+            return " ".join(text)
+        case _:
+            return ""
+
+@router.post("/{document_id}/read")
+async def read_documento(
+    document_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    doc = await get_document_by_id(db, document_id, current_user.id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+    if not braille_device.is_connected:
+        raise HTTPException(status_code=503, detail="Dispositivo no conectado")
+
+    text = extract_text(doc.file_path, doc.file_type)
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="No se pudo extraer texto del documento")
+
+    braille_data = braille_translate(text)
+    dots = send_braille_characters(braille_data)
+    ok = await braille_device.load_text(dots)
+
+    await update_reading_progress(db, doc, 0.0)
+
+    return {
+        "ok": ok,
+        "total_lines": braille_device.total_lines,
+        "current_line": braille_device.current_line,
+        "title": doc.title
+    }

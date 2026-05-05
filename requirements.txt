@@ -5,6 +5,7 @@ anyio==4.5.2
 argon2-cffi==25.1.0
 argon2-cffi-bindings==25.1.0
 asyncpg==0.31.0
+beautifulsoup4==4.14.3
 blis==1.3.3
 catalogue==2.0.10
 certifi==2025.10.5
@@ -21,6 +22,7 @@ cycler==0.12.1
 cymem==2.0.13
 Deprecated==1.3.1
 dnspython==2.8.0
+EbookLib==0.20
 ecdsa==0.19.2
 email-validator==2.3.0
 fastapi==0.129.0
@@ -40,6 +42,7 @@ Jinja2==3.1.6
 joblib==1.5.3
 kiwisolver==1.5.0
 limits==5.8.0
+lxml==6.1.0
 Mako==1.3.12
 markdown-it-py==4.0.0
 MarkupSafe==3.0.3
@@ -76,10 +79,12 @@ pycparser==2.23
 pydantic==2.12.5
 pydantic_core==2.41.5
 Pygments==2.19.2
+PyMuPDF==1.27.2.3
 pyparsing==3.3.2
 pytest==9.0.3
 pytest-asyncio==1.3.0
 python-dateutil==2.9.0.post0
+python-docx==1.2.0
 python-dotenv==1.2.1
 python-jose==3.5.0
 python-multipart==0.0.20
@@ -100,6 +105,7 @@ slowapi==0.1.9
 smart_open==7.6.0
 sniffio==1.3.1
 sounddevice==0.5.3
+soupsieve==2.8.3
 SQLAlchemy==2.0.49
 srsly==2.5.3
 srt==3.5.3
