@@ -2,6 +2,7 @@ import asyncio
 import logging
 from fastapi import WebSocket
 from utils.braille_translation import send_braille_characters
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
