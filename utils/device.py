@@ -59,10 +59,6 @@ class BrailleDevice:
             "rest_ms":       REST_MS
         })
 
-        if self._lines:
-            await asyncio.sleep(1.0)
-            await self._send_current_line()
-
     async def on_disconnect(self):
         self._ws = None
         self._cells = 0
