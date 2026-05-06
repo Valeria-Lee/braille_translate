@@ -163,7 +163,7 @@ class BrailleDevice:
 
         # per char: 6 dots max * (activation + rest) ms + pausa_chars + buffer
         ms_per_char = 6 * (ACTIVATION_MS + REST_MS) + self._pausa_chars
-        timeout = 900.0
+        timeout = 120.0
         logger.info(f"Esperando done, timeout={timeout:.1f}s")
 
         try:
