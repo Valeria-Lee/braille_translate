@@ -113,10 +113,14 @@ async def pair_request(device_id: str):
 
 @router.get("/pair/pending")
 async def get_pending_device():
+    expired = [k for k, v in pending_pairs.items() if datetime.now() >= v["expires"]]
+    for k in expired:
+        del pending_pairs[k]
+
     for device_id, data in pending_pairs.items():
         if datetime.now() < data["expires"]:
             return {
-                "device_id": device_id,
+                "device_id":  device_id,
                 "expires_in": (data["expires"] - datetime.now()).seconds
             }
     return {"device_id": None}
@@ -164,13 +168,13 @@ async def update_cells(
 
 @router.patch("/config")
 async def update_config(
-    pausa_chars: int,
+    pausa_chars: int = Query(..., ge=100, le=3000),  # min 100ms, max 3s
     current_user: User = Depends(get_current_user)
 ):
     braille_device._pausa_chars = pausa_chars
     if braille_device.is_connected:
         await braille_device._ws.send_json({
-            "type": "config",
+            "type":        "config",
             "pausa_chars": pausa_chars
         })
     return {"ok": True, "pausa_chars": pausa_chars}

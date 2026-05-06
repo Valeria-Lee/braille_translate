@@ -5,6 +5,10 @@ from utils.braille_translation import send_braille_characters
 
 logger = logging.getLogger(__name__)
 
+# constantes de hardware
+ACTIVATION_MS = 50 # duracion del pulso de solenoide
+REST_MS = 40 # descanso entre solenoides
+
 class BrailleDevice:
     def __init__(self):
         self._ws: WebSocket | None = None
@@ -14,6 +18,8 @@ class BrailleDevice:
         self._pausa_chars: int = 200
         self._lines: list[list] = []
         self._current_line: int = 0
+        self._reconnect_count = 0
+        self._reconnect_window_start = datetime.now()
 
     @property
     def is_connected(self) -> bool:
@@ -32,14 +38,24 @@ class BrailleDevice:
         return len(self._lines)
 
     async def on_connect(self, websocket: WebSocket, cells: int):
+        now = datetime.now()
+        if (now - self._reconnect_window_start).seconds < 60:
+            self._reconnect_count += 1
+            if self._reconnect_count > 5:
+                logger.warning("Demasiadas reconexiones: posible problema de hardware")
+        else:
+            self._reconnect_count = 1
+            self._reconnect_window_start = now
         self._ws = websocket
         self._cells = cells
         self._done_event.clear()
         logger.info(f"ESP8266 conectado: {cells} celda(s)")
 
         await websocket.send_json({
-            "type": "config",
-            "pausa_chars": self._pausa_chars 
+            "type":          "config",
+            "pausa_chars":   self._pausa_chars,
+            "activation_ms": ACTIVATION_MS,
+            "rest_ms":       REST_MS
         })
 
         if self._lines:
@@ -50,7 +66,7 @@ class BrailleDevice:
         self._ws = None
         self._cells = 0
         self._lines = []
-        self._current_line = 0 
+        self._current_line = 0
         self._done_event.set()
         logger.warning("ESP8266 desconectado")
 
@@ -74,6 +90,9 @@ class BrailleDevice:
             await self.prev_line()
 
     async def load_text(self, braille_data: list) -> bool:
+        if self._reconnect_count > 5:
+            logger.error("Renders bloqueados por inestabilidad de conexión")
+            return False
         chars_as_dots = send_braille_characters(braille_data)
         if not chars_as_dots:
             return False
@@ -98,7 +117,7 @@ class BrailleDevice:
                 return False
             if self._current_line < len(self._lines) - 1:
                 self._current_line += 1
-                logger.info(f"Línea → {self._current_line}/{len(self._lines)-1}")
+                logger.info(f"Línea - {self._current_line}/{len(self._lines)-1}")
                 return await self._send_current_line()
             else:
                 logger.info("Ya estás en la última línea")
@@ -110,7 +129,7 @@ class BrailleDevice:
                 return False
             if self._current_line > 0:
                 self._current_line -= 1
-                logger.info(f"Línea ← {self._current_line}/{len(self._lines)-1}")
+                logger.info(f"Línea - {self._current_line}/{len(self._lines)-1}")
                 return await self._send_current_line()
             else:
                 logger.info("Ya estás en la primera línea")
@@ -136,16 +155,20 @@ class BrailleDevice:
         self._done_event.clear()
         try:
             await self._ws.send_json({
-                "type":         "render",
-                "chars":        line,
-                "line_index":   idx,
-                "total_lines":  len(self._lines),
+                "type":        "render",
+                "chars":       line,
+                "line_index":  idx,
+                "total_lines": len(self._lines),
             })
         except Exception as e:
             logger.error(f"Error enviando línea {idx}: {e}")
             return False
 
-        timeout = 360.0
+        # per char: 6 dots max * (activation + rest) ms + pausa_chars + buffer
+        ms_per_char = 6 * (ACTIVATION_MS + REST_MS) + self._pausa_chars
+        timeout = 900.0
+        logger.info(f"Esperando done, timeout={timeout:.1f}s")
+
         try:
             await asyncio.wait_for(self._done_event.wait(), timeout=timeout)
             return True
