@@ -182,7 +182,7 @@ async def read_documento(
 
     braille_data = braille_translate(text)
     # dots = send_braille_characters(braille_data)
-    ok = await braille_device.load_text(dots)
+    ok = await braille_device.load_text(braille_data)
 
     text = extract_text(doc.file_path, doc.file_type)
     text = " ".join(text.split())
