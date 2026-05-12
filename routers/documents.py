@@ -184,13 +184,6 @@ async def read_documento(
     # dots = send_braille_characters(braille_data)
     ok = await braille_device.load_text(braille_data)
 
-    text = extract_text(doc.file_path, doc.file_type)
-    text = " ".join(text.split())
-    logger.info(f"TEXT SAMPLE: {repr(text[:500])}")
-    braille_data = braille_translate(text)
-    logger.info(f"BRAILLE SAMPLE: {braille_data[:2]}")
-    ok = await braille_device.load_text(braille_data)
-
     await update_reading_progress(db, doc, 0.0)
 
     return {
