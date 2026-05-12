@@ -173,12 +173,23 @@ async def read_documento(
         raise HTTPException(status_code=503, detail="Dispositivo no conectado")
 
     text = extract_text(doc.file_path, doc.file_type)
+
+    text = " ".join(text.split())  # collapse whitespace
+    text = text.strip()
+
     if not text.strip():
         raise HTTPException(status_code=400, detail="No se pudo extraer texto del documento")
 
     braille_data = braille_translate(text)
     # dots = send_braille_characters(braille_data)
     ok = await braille_device.load_text(dots)
+
+    text = extract_text(doc.file_path, doc.file_type)
+    text = " ".join(text.split())
+    logger.info(f"TEXT SAMPLE: {repr(text[:500])}")
+    braille_data = braille_translate(text)
+    logger.info(f"BRAILLE SAMPLE: {braille_data[:2]}")
+    ok = await braille_device.load_text(braille_data)
 
     await update_reading_progress(db, doc, 0.0)
 
