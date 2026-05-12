@@ -177,7 +177,7 @@ async def read_documento(
         raise HTTPException(status_code=400, detail="No se pudo extraer texto del documento")
 
     braille_data = braille_translate(text)
-    dots = send_braille_characters(braille_data)
+    # dots = send_braille_characters(braille_data)
     ok = await braille_device.load_text(dots)
 
     await update_reading_progress(db, doc, 0.0)
