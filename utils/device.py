@@ -7,7 +7,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # constantes de hardware
-ACTIVATION_MS = 35 # duracion del pulso de solenoide
+ACTIVATION_MS = 40 # duracion del pulso de solenoide
 REST_MS = 15 # descanso entre solenoides
 
 class BrailleDevice:
