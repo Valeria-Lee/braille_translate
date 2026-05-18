@@ -7,6 +7,10 @@ async def get_device_by_user(db: AsyncSession, user_id: int) -> Device | None:
     result = await db.execute(select(Device).where(Device.user_id == user_id))
     return result.scalar_one_or_none()
 
+async def get_device_by_device_id(db: AsyncSession, device_id: str) -> Device | None:
+    result = await db.execute(select(Device).where(Device.device_token == device_id))
+    return result.scalar_one_or_none()
+
 async def get_device_by_token(db: AsyncSession, token: str) -> Device | None:
     result = await db.execute(select(Device).where(Device.device_token == token))
     return result.scalar_one_or_none()

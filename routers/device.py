@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from database.connection import get_db
 from database.models.user import User
 from auth.dependencies import get_current_user
-from repositories.device_repository import get_device_by_user, create_device, get_device_by_token
+from repositories.device_repository import get_device_by_user, create_device, get_device_by_token, get_device_by_device_id
 from utils.device import braille_device
 import secrets
 import json
@@ -82,7 +82,18 @@ async def device_endpoint(websocket: WebSocket):
             await websocket.close()
             return
 
+        device_id = hello.get("device_id")
         cells = hello.get("cells", 1)
+
+        db_gen = get_db()
+        db = await db_gen.__anext__()
+        try:
+            device = await get_device_by_device_id(db, device_id)
+            if device:
+                cells = device.cells
+        finally:
+            await db_gen.aclose()
+
         await braille_device.on_connect(websocket, cells)
 
         while True:
