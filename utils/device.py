@@ -56,7 +56,8 @@ class BrailleDevice:
             "type":          "config",
             "pausa_chars":   self._pausa_chars,
             "activation_ms": ACTIVATION_MS,
-            "rest_ms":       REST_MS
+            "rest_ms":       REST_MS,
+            "num_cells":     cells
         })
 
     async def on_disconnect(self):
