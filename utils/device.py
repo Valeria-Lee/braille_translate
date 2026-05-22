@@ -7,7 +7,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # constantes de hardware
-ACTIVATION_MS = 40 # duracion del pulso de solenoide
+ACTIVATION_MS = 35 # duracion del pulso de solenoide
 REST_MS = 15 # descanso entre solenoides
 
 class BrailleDevice:
@@ -82,10 +82,10 @@ class BrailleDevice:
             self._cells = msg.get("cells", self._cells)
 
         elif t == "next":
-            await self.next_line()
+            asyncio.get_event_loop().create_task(self.next_line())
 
         elif t == "prev":
-            await self.prev_line()
+            asyncio.get_event_loop().create_task(self.prev_line())
 
     async def load_text(self, braille_data: list) -> bool:
         if self._reconnect_count > 5:
@@ -115,7 +115,7 @@ class BrailleDevice:
                 return False
             if self._current_line < len(self._lines) - 1:
                 self._current_line += 1
-                logger.info(f"Línea - {self._current_line}/{len(self._lines)-1}")
+                logger.info(f"→ línea {self._current_line}/{len(self._lines)-1}")
                 return await self._send_current_line()
             else:
                 logger.info("Ya estás en la última línea")
@@ -127,7 +127,7 @@ class BrailleDevice:
                 return False
             if self._current_line > 0:
                 self._current_line -= 1
-                logger.info(f"Línea - {self._current_line}/{len(self._lines)-1}")
+                logger.info(f"← línea {self._current_line}/{len(self._lines)-1}")
                 return await self._send_current_line()
             else:
                 logger.info("Ya estás en la primera línea")
